@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -42,9 +43,12 @@ namespace SudokuHelper
                 }
 
                 Sudoku sudoku = new Sudoku(rows, squareRowCount, squareColumnCount, squareHeight, squareWidth);
+
+                Stopwatch sw = Stopwatch.StartNew();
+                SudokuHandler.SolveSudoku(sudoku);
+                sw.Stop();
+                Console.WriteLine("Time: {0}ms, {1}ticks", sw.ElapsedMilliseconds, sw.ElapsedTicks);
                 SudokuHandler.PrintSudoku(sudoku);
-                //SudokuHandler.SolveSudoku(sudoku);
-                //SudokuHandler.PrintSudoku(sudoku);
             }
             Console.ReadKey();
         }
@@ -67,8 +71,11 @@ namespace SudokuHelper
     {
         public static void SolveSudoku(Sudoku sudoku)
         {
+            int solveRun = 0;
             while (!sudoku.IsSolved())
             {
+                solveRun++;
+
                 for (int i = 0; i < sudoku.MaxValue; i++)
                 {
                     SolveRow(sudoku, i);
@@ -83,6 +90,7 @@ namespace SudokuHelper
                     }
                 }
             }
+            Console.WriteLine("Needed runs: {0}", solveRun);
         }
 
         private static void SolveRow(Sudoku sudoku, int row)
