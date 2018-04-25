@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -96,12 +95,12 @@ namespace SudokuHelper
 
         private static void SolveRow(Sudoku sudoku, int row)
         {
-            RemoveImpossibleValues(sudoku.MaxValue, sudoku.Fields.Where(f => f.Row == row));
+            RemoveImpossibleValues(sudoku.Fields.Where(f => f.Row == row));
         }
 
         private static void SolveColumn(Sudoku sudoku, int column)
         {
-            RemoveImpossibleValues(sudoku.MaxValue, sudoku.Fields.Where(f => f.Column == column));
+            RemoveImpossibleValues(sudoku.Fields.Where(f => f.Column == column));
         }
 
         private static void SolveSquare(Sudoku sudoku, int squareRow, int squareColumn)
@@ -111,38 +110,18 @@ namespace SudokuHelper
             int lowestColumn = sudoku.SquareHeight * squareColumn;
             int heighestColumn = (sudoku.SquareHeight * (squareColumn + 1)) - 1;
 
-            RemoveImpossibleValues(sudoku.MaxValue, sudoku.Fields.Where(f => (f.Row >= lowestRow && f.Row <= heighestRow && f.Column >= lowestColumn && f.Column <= heighestColumn)));
+            RemoveImpossibleValues(sudoku.Fields.Where(f => (f.Row >= lowestRow && f.Row <= heighestRow && f.Column >= lowestColumn && f.Column <= heighestColumn)));
         }
 
-        private static void RemoveImpossibleValues(int maxValue, IEnumerable<SudokuField> fields)
+        private static void RemoveImpossibleValues(IEnumerable<SudokuField> fields)
         {
-            var values = GetBitArrayOutOfSetValues(maxValue, fields);
+            var values = fields.Where(f => f.IsSet()).Select(f => f.GetValue());
             var fieldsToSet = fields.Where(f => !f.IsSet()).Select(f => f as SudokuInputField);
 
             foreach (var field in fieldsToSet)
             {
                 field.RemoveImpossibleValues(values);
             }
-        }
-
-        private static void RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(int maxValue, IEnumerable<SudokuField> fields)
-        {
-            var possibleValues = fields.Where(f => !f.IsSet()).Select(f => f.GetValue());
-
-
-
-        }
-
-        public static BitArray GetBitArrayOutOfSetValues(int maxValue, IEnumerable<SudokuField> fields)
-        {
-            BitArray setValues = new BitArray(maxValue);
-            var values = fields.Where(f => f.IsSet()).Select(f => f.GetValue());
-
-            foreach (var value in values)
-            {
-                setValues.Set(value - 1, true);
-            }
-            return setValues;
         }
 
         public static void PrintSudoku(Sudoku sudoku)
@@ -217,78 +196,95 @@ namespace SudokuHelper
     {
         public readonly int Row;
         public readonly int Column;
-        protected int Value;
 
         protected SudokuField(int row, int column)
         {
             Row = row;
             Column = column;
-            Value = 0;
         }
 
-        public int GetValue()
-        {
-            return Value;
-        }
-
-        public bool IsSet()
-        {
-            return Value != 0;
-        }
+        abstract public int GetValue();
+        abstract public bool IsSet();
 
         public override string ToString()
         {
-            return string.Format("({0}:{1}): {2}", Row, Column, Value);
+            return string.Format("({0}:{1}): {2}", Row, Column, GetValue());
         }
     }
 
     class SudokuFixValue : SudokuField
     {
+        public readonly int Value;
+
         public SudokuFixValue(int row, int column, int value) : base(row, column)
         {
             Value = value;
+        }
+
+        public override int GetValue()
+        {
+            return Value;
+        }
+
+        public override bool IsSet()
+        {
+            return true;
         }
     }
 
     class SudokuInputField : SudokuField
     {
         private readonly int MaxValue;
-        public readonly BitArray PossibleValues;
+
+        private bool isSet;
+        public readonly List<int> PossibleValues = new List<int>();
 
         public SudokuInputField(int row, int column, int maxValue) : base(row, column)
         {
-            PossibleValues = new BitArray(maxValue).Not();
             MaxValue = maxValue;
+            SetAllValuesPossible();
         }
 
-        public void RemoveImpossibleValues(BitArray impossible)
+        public override int GetValue()
         {
-            PossibleValues.Not().And(impossible);
+            if (PossibleValues.Count == 1)
+            {
+                return PossibleValues[0];
+            }
+            return 0;
+        }
+
+        public override bool IsSet()
+        {
+            return isSet;
+        }
+
+        public void RemoveImpossibleValues(IEnumerable<int> impossible)
+        {
+            foreach (var value in impossible)
+            {
+                PossibleValues.Remove(value);
+            }
+
             CheckIsSet();
         }
 
         private void CheckIsSet()
         {
-            int value = GetValueOrDefault();
-            if (value > 0)
+            if (PossibleValues.Count == 0)
             {
-                Value = value;
+                SetAllValuesPossible();
             }
+
+            isSet = PossibleValues.Count == 1;
         }
 
-        private int GetValueOrDefault()
+        private void SetAllValuesPossible()
         {
-            int foundIndex = 0;
-            for (int i = 0; i < PossibleValues.Length; i++)
+            for (int i = 1; i <= MaxValue; i++)
             {
-                if (PossibleValues[i])
-                {
-                    if (foundIndex > 0) return 0;
-
-                    foundIndex = i;
-                }
+                PossibleValues.Add(i);
             }
-            return foundIndex + 1;
         }
     }
 }
