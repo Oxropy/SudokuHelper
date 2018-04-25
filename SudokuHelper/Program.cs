@@ -10,21 +10,26 @@ namespace SudokuHelper
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Square count in row:");
-            string input = Console.ReadLine();
-            int.TryParse(input, out int squareRowCount);
+            string input;
+            //Console.WriteLine("Square count in row:");
+            //string input = Console.ReadLine();
+            //int.TryParse(input, out int squareRowCount);
+            int squareRowCount = 3;
 
-            Console.WriteLine("Square count in column:");
-            input = Console.ReadLine();
-            int.TryParse(input, out int squareColumnCount);
+            //Console.WriteLine("Square count in column:");
+            //input = Console.ReadLine();
+            //int.TryParse(input, out int squareColumnCount);
+            int squareColumnCount = 3;
 
-            Console.WriteLine("Square height:");
-            input = Console.ReadLine();
-            int.TryParse(input, out int squareHeight);
+            //Console.WriteLine("Square height:");
+            //input = Console.ReadLine();
+            //int.TryParse(input, out int squareHeight);
+            int squareHeight = 3;
 
-            Console.WriteLine("Square width:");
-            input = Console.ReadLine();
-            int.TryParse(input, out int squareWidth);
+            //Console.WriteLine("Square width:");
+            //input = Console.ReadLine();
+            //int.TryParse(input, out int squareWidth);
+            int squareWidth = 3;
 
             if (squareRowCount > 0 && squareHeight > 0 && squareWidth > 0)
             {
@@ -180,7 +185,7 @@ namespace SudokuHelper
                     }
                     else
                     {
-                        Fields.Add(new SudokuFixValue(i, j, value));
+                        Fields.Add(new SudokuField(i, j, value));
                     }
                 }
             }
@@ -192,71 +197,44 @@ namespace SudokuHelper
         }
     }
 
-    abstract class SudokuField
+    class SudokuField
     {
+        protected int Value;
         public readonly int Row;
         public readonly int Column;
 
-        protected SudokuField(int row, int column)
+        public SudokuField(int row, int column, int value = 0)
         {
             Row = row;
             Column = column;
-        }
-
-        abstract public int GetValue();
-        abstract public bool IsSet();
-
-        public override string ToString()
-        {
-            return string.Format("({0}:{1}): {2}", Row, Column, GetValue());
-        }
-    }
-
-    class SudokuFixValue : SudokuField
-    {
-        public readonly int Value;
-
-        public SudokuFixValue(int row, int column, int value) : base(row, column)
-        {
             Value = value;
         }
 
-        public override int GetValue()
+        public int GetValue()
         {
             return Value;
         }
 
-        public override bool IsSet()
+        public bool IsSet()
         {
-            return true;
+            return Value != 0;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("({0}:{1}): {2}", Row, Column, Value);
         }
     }
 
     class SudokuInputField : SudokuField
     {
         private readonly int MaxValue;
-
-        private bool isSet;
         public readonly List<int> PossibleValues = new List<int>();
 
         public SudokuInputField(int row, int column, int maxValue) : base(row, column)
         {
             MaxValue = maxValue;
             SetAllValuesPossible();
-        }
-
-        public override int GetValue()
-        {
-            if (PossibleValues.Count == 1)
-            {
-                return PossibleValues[0];
-            }
-            return 0;
-        }
-
-        public override bool IsSet()
-        {
-            return isSet;
         }
 
         public void RemoveImpossibleValues(IEnumerable<int> impossible)
@@ -271,12 +249,7 @@ namespace SudokuHelper
 
         private void CheckIsSet()
         {
-            if (PossibleValues.Count == 0)
-            {
-                SetAllValuesPossible();
-            }
-
-            isSet = PossibleValues.Count == 1;
+            Value = GetValueOrDefault();
         }
 
         private void SetAllValuesPossible()
@@ -285,6 +258,15 @@ namespace SudokuHelper
             {
                 PossibleValues.Add(i);
             }
+        }
+
+        private int GetValueOrDefault()
+        {
+            if (PossibleValues.Count == 1)
+            {
+                return PossibleValues[0];
+            }
+            return 0;
         }
     }
 }
