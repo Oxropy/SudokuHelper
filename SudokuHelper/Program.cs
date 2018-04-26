@@ -91,7 +91,7 @@ namespace SudokuHelper
                 {
                     for (int j = 0; j < sudoku.SquareColumnCount; j++)
                     {
-                        SolveSquare(sudoku, i, j); 
+                        SolveSquare(sudoku, i, j);
                     }
                 }
             }
@@ -126,6 +126,47 @@ namespace SudokuHelper
             foreach (var field in fieldsToSet)
             {
                 field.RemoveImpossibleValues(values);
+            }
+        }
+
+        private static void RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(IEnumerable<SudokuInputField> fields)
+        {
+            int maxValue = fields.Count();
+            var fieldsPossibleValues = fields.Where(f => !f.IsSet()).Select(f => f.PossibleValues);
+            int possibleValueCount = fieldsPossibleValues.Count();
+
+            var valueCount = new Dictionary<string, int>();
+            foreach (var fieldPossibleValue in fieldsPossibleValues)
+            {
+                string valueKey = string.Empty;
+                foreach (var value in fieldPossibleValue)
+                {
+                    valueKey += value.ToString();
+                    valueKey += "|";
+                }
+
+                if (valueCount.ContainsKey(valueKey))
+                {
+                    valueCount[valueKey]++;
+                }
+                else
+                {
+                    valueCount.Add(valueKey, 1);
+                }
+            }
+
+            var valueCountOrdered = valueCount.OrderBy(c => c.Value);
+
+            foreach (var valueConstellation in valueCountOrdered)
+            {
+                if (valueConstellation.Key.Length == valueConstellation.Value)
+                {
+                    var fieldsWithImpossibleValues = fields.Where(f => string.Join("|", f.PossibleValues.Select(v => v.ToString()).ToArray()) != valueConstellation.Key);
+                    foreach (var fieldWithImpossibleValues in fieldsWithImpossibleValues)
+                    {
+                        fieldWithImpossibleValues.RemoveImpossibleValues(valueConstellation.Key.Split('|').Select(f => Convert.ToInt32(f)));
+                    }
+                }
             }
         }
 
@@ -181,7 +222,7 @@ namespace SudokuHelper
                     int value = values[i][j];
                     if (value == 0)
                     {
-                        Fields.Add(new SudokuInputField(i, j, MaxValue)); 
+                        Fields.Add(new SudokuInputField(i, j, MaxValue));
                     }
                     else
                     {
