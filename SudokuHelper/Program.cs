@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -10,44 +11,13 @@ namespace SudokuHelper
     {
         static void Main(string[] args)
         {
-            string input;
-            //Console.WriteLine("Square count in row:");
-            //string input = Console.ReadLine();
-            //int.TryParse(input, out int squareRowCount);
-            int squareRowCount = 3;
+            Console.WriteLine("Sudoku path:");
+            string pathInput = Console.ReadLine();
+            var values = ImportSudoku(pathInput);
 
-            //Console.WriteLine("Square count in column:");
-            //input = Console.ReadLine();
-            //int.TryParse(input, out int squareColumnCount);
-            int squareColumnCount = 3;
-
-            //Console.WriteLine("Square height:");
-            //input = Console.ReadLine();
-            //int.TryParse(input, out int squareHeight);
-            int squareHeight = 3;
-
-            //Console.WriteLine("Square width:");
-            //input = Console.ReadLine();
-            //int.TryParse(input, out int squareWidth);
-            int squareWidth = 3;
-
-            if (squareRowCount > 0 && squareHeight > 0 && squareWidth > 0)
+            if (values.Length > 0)
             {
-                int maxValue = squareHeight * squareWidth;
-
-                Console.WriteLine("Split rows by '|'");
-                Console.WriteLine("0 or space for unknown numbers");
-                input = Console.ReadLine();
-
-                string[] lines = input.Split('|');
-
-                int[][] rows = new int[maxValue][];
-                for (int i = 0; i < rows.Length; i++)
-                {
-                    rows[i] = GetIntValuesOutOfStringLine(squareColumnCount * squareWidth, lines[i]);
-                }
-
-                Sudoku sudoku = new Sudoku(rows, squareRowCount, squareColumnCount, squareHeight, squareWidth);
+                Sudoku sudoku = new Sudoku(values);
 
                 Stopwatch sw = Stopwatch.StartNew();
                 SudokuHandler.SolveSudoku(sudoku);
@@ -58,17 +28,39 @@ namespace SudokuHelper
             Console.ReadKey();
         }
 
-        private static int[] GetIntValuesOutOfStringLine(int maxValues, string line)
+        private static int[][] ImportSudoku(string path)
         {
-            int[] values = new int[9];
-            for (int i = 0; i < 9; i++)
+            var values = new List<int[]>();
+            try
             {
-                if (!int.TryParse(line[i].ToString(), out values[i]))
+                using (StreamReader r = File.OpenText(path))
                 {
-                    values[i] = 0;
+                    string line;
+                    while ((line = r.ReadLine()) != null)
+                    {
+                        values.Add(GetIntValuesOutOfStringLine(line));
+                    }
                 }
             }
-            return values;
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("Sudoku import error: {0}", ex.Message));
+            }
+            return values.ToArray();
+        }
+
+        private static int[] GetIntValuesOutOfStringLine(string line)
+        {
+            var values = new List<int>();
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (int.TryParse(line[i].ToString(), out int value))
+                {
+                    values.Add(value);
+                }
+
+            }
+            return values.ToArray();
         }
     }
 
@@ -127,44 +119,33 @@ namespace SudokuHelper
             {
                 field.RemoveImpossibleValues(values);
             }
+
+            //RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(fieldsToSet);
         }
 
-        private static void RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(IEnumerable<SudokuInputField> fields)
+        private static void RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(IEnumerable<SudokuField> fields)
         {
-            int maxValue = fields.Count();
-            var fieldsPossibleValues = fields.Where(f => !f.IsSet()).Select(f => f.PossibleValues);
-            int possibleValueCount = fieldsPossibleValues.Count();
-
-            var valueCount = new Dictionary<string, int>();
-            foreach (var fieldPossibleValue in fieldsPossibleValues)
+            IEnumerable<SudokuInputField> fieldsToSet = fields.Where(f => !f.IsSet()).Select(f => f as SudokuInputField);
+            if (fieldsToSet.Count() > 0)
             {
-                string valueKey = string.Empty;
-                foreach (var value in fieldPossibleValue)
-                {
-                    valueKey += value.ToString();
-                    valueKey += "|";
-                }
+                var fieldsPossibleValues = fieldsToSet.Where(f => !f.IsSet()).Select(f => f.PossibleValues);
+                var fieldsPossibleValuesDistinct = fieldsPossibleValues.Distinct();
 
-                if (valueCount.ContainsKey(valueKey))
-                {
-                    valueCount[valueKey]++;
-                }
-                else
-                {
-                    valueCount.Add(valueKey, 1);
-                }
-            }
+                var valueCount = fieldsPossibleValuesDistinct.Select(f => new Tuple<List<int>, int>(f, fieldsPossibleValues.Count(v => v.SequenceEqual(f))));
 
-            var valueCountOrdered = valueCount.OrderBy(c => c.Value);
-
-            foreach (var valueConstellation in valueCountOrdered)
-            {
-                if (valueConstellation.Key.Length == valueConstellation.Value)
+                if (valueCount.Count() > 1)
                 {
-                    var fieldsWithImpossibleValues = fields.Where(f => string.Join("|", f.PossibleValues.Select(v => v.ToString()).ToArray()) != valueConstellation.Key);
-                    foreach (var fieldWithImpossibleValues in fieldsWithImpossibleValues)
+                    var valueCountOrdered = valueCount.Where(v => v.Item2 > 1).OrderBy(c => c.Item2);
+                    foreach (var valueConstellation in valueCountOrdered)
                     {
-                        fieldWithImpossibleValues.RemoveImpossibleValues(valueConstellation.Key.Split('|').Select(f => Convert.ToInt32(f)));
+                        if (valueConstellation.Item1.Count == valueConstellation.Item2)
+                        {
+                            var fieldsWithImpossibleValues = fieldsToSet.Where(f => !f.PossibleValues.SequenceEqual(valueConstellation.Item1));
+                            foreach (var fieldWithImpossibleValues in fieldsWithImpossibleValues)
+                            {
+                                fieldWithImpossibleValues.RemoveImpossibleValues(valueConstellation.Item1);
+                            }
+                        }
                     }
                 }
             }
@@ -207,13 +188,13 @@ namespace SudokuHelper
         public readonly int SquareWidth;
         public readonly List<SudokuField> Fields = new List<SudokuField>();
 
-        public Sudoku(int[][] values, int squareRowCount, int squareColumnCount, int squareHeight, int squareWidth)
+        public Sudoku(int[][] values)
         {
-            SquareRowCount = squareRowCount;
-            SquareColumnCount = squareColumnCount;
-            SquareHeight = squareHeight;
-            SquareWidth = squareWidth;
-            MaxValue = squareHeight * squareWidth;
+            SquareRowCount = 3;
+            SquareColumnCount = 3;
+            SquareHeight = 3;
+            SquareWidth = 3;
+            MaxValue = 9;
 
             for (int i = 0; i < values.Length; i++)
             {
