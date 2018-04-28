@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Imms;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -17,13 +18,14 @@ namespace SudokuHelper
 
             if (values.Length > 0)
             {
-                Sudoku sudoku = new Sudoku(values);
-
-                Stopwatch sw = Stopwatch.StartNew();
-                SudokuHandler.SolveSudoku(sudoku);
-                sw.Stop();
-                Console.WriteLine("Time: {0}ms, {1}ticks", sw.ElapsedMilliseconds, sw.ElapsedTicks);
+                Sudoku sudoku = new Sudoku(values, SudokuHandler.GetDefaultSquares());
                 SudokuHandler.PrintSudoku(sudoku);
+
+                //Stopwatch sw = Stopwatch.StartNew();
+                //SudokuHandler.SolveSudoku(sudoku);
+                //sw.Stop();
+                //Console.WriteLine("Time: {0}ms, {1}ticks", sw.ElapsedMilliseconds, sw.ElapsedTicks);
+                //SudokuHandler.PrintSudoku(sudoku);
             }
             Console.ReadKey();
         }
@@ -66,229 +68,262 @@ namespace SudokuHelper
 
     static class SudokuHandler
     {
+        public static List<List<Tuple<int, int>>> GetDefaultSquares()
+        {
+            List<List<Tuple<int, int>>> groups = new List<List<Tuple<int, int>>>();
+
+            var square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(0,0),
+                new Tuple<int,int>(0,1),
+                new Tuple<int,int>(0,2),
+                new Tuple<int,int>(1,1),
+                new Tuple<int,int>(1,2),
+                new Tuple<int,int>(1,3),
+                new Tuple<int,int>(2,1),
+                new Tuple<int,int>(2,2),
+                new Tuple<int,int>(2,3)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(4,0),
+                new Tuple<int,int>(4,1),
+                new Tuple<int,int>(4,2),
+                new Tuple<int,int>(5,1),
+                new Tuple<int,int>(5,2),
+                new Tuple<int,int>(5,3),
+                new Tuple<int,int>(6,1),
+                new Tuple<int,int>(6,2),
+                new Tuple<int,int>(6,3)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(7,0),
+                new Tuple<int,int>(7,1),
+                new Tuple<int,int>(7,2),
+                new Tuple<int,int>(8,1),
+                new Tuple<int,int>(8,2),
+                new Tuple<int,int>(8,3),
+                new Tuple<int,int>(9,1),
+                new Tuple<int,int>(9,2),
+                new Tuple<int,int>(9,3)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(0,4),
+                new Tuple<int,int>(0,5),
+                new Tuple<int,int>(0,6),
+                new Tuple<int,int>(1,4),
+                new Tuple<int,int>(1,5),
+                new Tuple<int,int>(1,6),
+                new Tuple<int,int>(2,4),
+                new Tuple<int,int>(2,5),
+                new Tuple<int,int>(2,6)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(3,4),
+                new Tuple<int,int>(3,5),
+                new Tuple<int,int>(3,6),
+                new Tuple<int,int>(4,4),
+                new Tuple<int,int>(4,5),
+                new Tuple<int,int>(4,6),
+                new Tuple<int,int>(5,4),
+                new Tuple<int,int>(5,5),
+                new Tuple<int,int>(5,6)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(6,4),
+                new Tuple<int,int>(6,5),
+                new Tuple<int,int>(6,6),
+                new Tuple<int,int>(7,4),
+                new Tuple<int,int>(7,5),
+                new Tuple<int,int>(7,6),
+                new Tuple<int,int>(8,4),
+                new Tuple<int,int>(8,5),
+                new Tuple<int,int>(8,6)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(0,7),
+                new Tuple<int,int>(0,8),
+                new Tuple<int,int>(0,9),
+                new Tuple<int,int>(1,7),
+                new Tuple<int,int>(1,8),
+                new Tuple<int,int>(1,9),
+                new Tuple<int,int>(2,7),
+                new Tuple<int,int>(2,8),
+                new Tuple<int,int>(2,9)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(4,7),
+                new Tuple<int,int>(4,8),
+                new Tuple<int,int>(4,9),
+                new Tuple<int,int>(5,7),
+                new Tuple<int,int>(5,8),
+                new Tuple<int,int>(5,9),
+                new Tuple<int,int>(6,7),
+                new Tuple<int,int>(6,8),
+                new Tuple<int,int>(6,9)
+            };
+            groups.Add(square);
+
+            square = new List<Tuple<int, int>>()
+            {
+                new Tuple<int,int>(7,7),
+                new Tuple<int,int>(7,8),
+                new Tuple<int,int>(7,9),
+                new Tuple<int,int>(8,7),
+                new Tuple<int,int>(8,8),
+                new Tuple<int,int>(8,9),
+                new Tuple<int,int>(9,7),
+                new Tuple<int,int>(9,8),
+                new Tuple<int,int>(9,9)
+            };
+            groups.Add(square);
+
+            for (int i = 0; i < 9; i++)
+            {
+                var row = new List<Tuple<int, int>>()
+                {
+                    new Tuple<int,int>(i,0),
+                    new Tuple<int,int>(i,1),
+                    new Tuple<int,int>(i,2),
+                    new Tuple<int,int>(i,3),
+                    new Tuple<int,int>(i,4),
+                    new Tuple<int,int>(i,5),
+                    new Tuple<int,int>(i,6),
+                    new Tuple<int,int>(i,7),
+                    new Tuple<int,int>(i,8)
+                };
+                groups.Add(row);
+
+                var column = new List<Tuple<int, int>>()
+                {
+                    new Tuple<int,int>(0,i),
+                    new Tuple<int,int>(1,i),
+                    new Tuple<int,int>(2,i),
+                    new Tuple<int,int>(3,i),
+                    new Tuple<int,int>(4,i),
+                    new Tuple<int,int>(5,i),
+                    new Tuple<int,int>(6,i),
+                    new Tuple<int,int>(7,i),
+                    new Tuple<int,int>(8,i)
+                };
+                groups.Add(column);
+            }
+
+            return groups;
+        }
+
         public static void SolveSudoku(Sudoku sudoku)
         {
-            int solveRun = 0;
-            while (!sudoku.IsSolved())
-            {
-                solveRun++;
 
-                for (int i = 0; i < sudoku.MaxValue; i++)
-                {
-                    SolveRow(sudoku, i);
-                    SolveColumn(sudoku, i);
-                }
-
-                for (int i = 0; i < sudoku.SquareRowCount; i++)
-                {
-                    for (int j = 0; j < sudoku.SquareColumnCount; j++)
-                    {
-                        SolveSquare(sudoku, i, j);
-                    }
-                }
-            }
-            Console.WriteLine("Needed runs: {0}", solveRun);
-        }
-
-        private static void SolveRow(Sudoku sudoku, int row)
-        {
-            RemoveImpossibleValues(sudoku.Fields.Where(f => f.Row == row));
-        }
-
-        private static void SolveColumn(Sudoku sudoku, int column)
-        {
-            RemoveImpossibleValues(sudoku.Fields.Where(f => f.Column == column));
-        }
-
-        private static void SolveSquare(Sudoku sudoku, int squareRow, int squareColumn)
-        {
-            int lowestRow = sudoku.SquareWidth * squareRow;
-            int heighestRow = (sudoku.SquareWidth * (squareRow + 1)) - 1;
-            int lowestColumn = sudoku.SquareHeight * squareColumn;
-            int heighestColumn = (sudoku.SquareHeight * (squareColumn + 1)) - 1;
-
-            RemoveImpossibleValues(sudoku.Fields.Where(f => (f.Row >= lowestRow && f.Row <= heighestRow && f.Column >= lowestColumn && f.Column <= heighestColumn)));
-        }
-
-        private static void RemoveImpossibleValues(IEnumerable<SudokuField> fields)
-        {
-            var values = fields.Where(f => f.IsSet()).Select(f => f.GetValue());
-            var fieldsToSet = fields.Where(f => !f.IsSet()).Select(f => f as SudokuInputField);
-
-            foreach (var field in fieldsToSet)
-            {
-                field.RemoveImpossibleValues(values);
-            }
-
-            //RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(fieldsToSet);
-        }
-
-        private static void RemoveImpossibleValuesCauseFieldsHasOnlyTheseValues(IEnumerable<SudokuField> fields)
-        {
-            IEnumerable<SudokuInputField> fieldsToSet = fields.Where(f => !f.IsSet()).Select(f => f as SudokuInputField);
-            if (fieldsToSet.Count() > 0)
-            {
-                var fieldsPossibleValues = fieldsToSet.Where(f => !f.IsSet()).Select(f => f.PossibleValues);
-                var fieldsPossibleValuesDistinct = fieldsPossibleValues.Distinct();
-
-                var valueCount = fieldsPossibleValuesDistinct.Select(f => new Tuple<List<int>, int>(f, fieldsPossibleValues.Count(v => v.SequenceEqual(f))));
-
-                if (valueCount.Count() > 1)
-                {
-                    var valueCountOrdered = valueCount.Where(v => v.Item2 > 1).OrderBy(c => c.Item2);
-                    foreach (var valueConstellation in valueCountOrdered)
-                    {
-                        if (valueConstellation.Item1.Count == valueConstellation.Item2)
-                        {
-                            var fieldsWithImpossibleValues = fieldsToSet.Where(f => !f.PossibleValues.SequenceEqual(valueConstellation.Item1));
-                            foreach (var fieldWithImpossibleValues in fieldsWithImpossibleValues)
-                            {
-                                fieldWithImpossibleValues.RemoveImpossibleValues(valueConstellation.Item1);
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         public static void PrintSudoku(Sudoku sudoku)
         {
-            int fieldWidth = sudoku.MaxValue.ToString().Length;
+            IEnumerable<Field> fields = sudoku.Groups.SelectMany(g => g.Fields).Distinct();
 
-            StringBuilder sb = new StringBuilder();
-
-            for (int i = 0; i < sudoku.MaxValue; i++)
+            for (int i = 0; i < sudoku.Groups.Count; i++)
             {
-                if (i % sudoku.SquareHeight == 0)
+                IEnumerable<Field> row = fields.Where(f => f.Row == i).OrderBy(f => f.Column);
+                foreach (var position in row)
                 {
-                    Console.WriteLine();
+                    int value = position.PossibleValues.Length == 1 ? position.PossibleValues[0] : 0;
+                    Console.Write(value);
                 }
-
-                IEnumerable<SudokuField> row = sudoku.Fields.Where(f => f.Row == i).OrderBy(f => f.Column).OrderBy(f => f.Row);
-                foreach (var field in row)
-                {
-                    if (field.Column > 0 && field.Column % sudoku.SquareWidth == 0)
-                    {
-                        sb.Append(" ");
-                    }
-                    sb.Append(field.GetValue().ToString().PadLeft(fieldWidth + 1));
-                }
-                Console.WriteLine(sb);
-                sb.Clear();
+                Console.WriteLine();
             }
         }
     }
 
     class Sudoku
     {
-        public readonly int MaxValue;
-        public readonly int SquareRowCount;
-        public readonly int SquareColumnCount;
-        public readonly int SquareHeight;
-        public readonly int SquareWidth;
-        public readonly List<SudokuField> Fields = new List<SudokuField>();
+        public readonly List<Group> Groups;
 
-        public Sudoku(int[][] values)
+        public Sudoku(int[][] values, List<List<Tuple<int, int>>> groups)
         {
-            SquareRowCount = 3;
-            SquareColumnCount = 3;
-            SquareHeight = 3;
-            SquareWidth = 3;
-            MaxValue = 9;
-
+            List<Field> fields = new List<Field>();
             for (int i = 0; i < values.Length; i++)
             {
                 for (int j = 0; j < values[i].Length; j++)
                 {
+                    Field field;
                     int value = values[i][j];
                     if (value == 0)
                     {
-                        Fields.Add(new SudokuInputField(i, j, MaxValue));
+                        field = new Field(i, j, Enumerable.Range(1, values.Length).ToImmList());
                     }
                     else
                     {
-                        Fields.Add(new SudokuField(i, j, value));
+                        field = new Field(i, j, ImmList.Of(value));
+                    }
+                    fields.Add(field);
+                }
+            }
+
+            Groups = new List<Group>();
+            foreach (var group in groups)
+            {
+                List<Field> fieldList = new List<Field>();
+                foreach (var field in fields)
+                {
+                    foreach (var position in group)
+                    {
+                        if (position.Item1 == field.Row && position.Item2 == field.Column)
+                        {
+                            fieldList.Add(field);
+                        }
                     }
                 }
+                Groups.Add(new Group(fieldList));
             }
         }
 
-        public bool IsSolved()
+        public static bool IsGroupComplete(Group group)
         {
-            return !Fields.Any(f => !f.IsSet());
+            return group.Fields.All(f => f.PossibleValues.Count() == 1);
         }
     }
 
-    class SudokuField
+    struct Group
     {
-        protected int Value;
+        public readonly ImmList<Field> Fields;
+
+        public Group(IEnumerable<Field> fields)
+        {
+            Fields = fields.ToImmList();
+        }
+    }
+
+    struct Field
+    {
         public readonly int Row;
         public readonly int Column;
+        public readonly ImmList<int> PossibleValues;
 
-        public SudokuField(int row, int column, int value = 0)
+        public Field(int row, int column, ImmList<int> possibleValues)
         {
             Row = row;
             Column = column;
-            Value = value;
-        }
-
-        public int GetValue()
-        {
-            return Value;
-        }
-
-        public bool IsSet()
-        {
-            return Value != 0;
-        }
-
-        public override string ToString()
-        {
-            return string.Format("({0}:{1}): {2}", Row, Column, Value);
-        }
-    }
-
-    class SudokuInputField : SudokuField
-    {
-        private readonly int MaxValue;
-        public readonly List<int> PossibleValues = new List<int>();
-
-        public SudokuInputField(int row, int column, int maxValue) : base(row, column)
-        {
-            MaxValue = maxValue;
-            SetAllValuesPossible();
-        }
-
-        public void RemoveImpossibleValues(IEnumerable<int> impossible)
-        {
-            foreach (var value in impossible)
-            {
-                PossibleValues.Remove(value);
-            }
-
-            CheckIsSet();
-        }
-
-        private void CheckIsSet()
-        {
-            Value = GetValueOrDefault();
-        }
-
-        private void SetAllValuesPossible()
-        {
-            for (int i = 1; i <= MaxValue; i++)
-            {
-                PossibleValues.Add(i);
-            }
-        }
-
-        private int GetValueOrDefault()
-        {
-            if (PossibleValues.Count == 1)
-            {
-                return PossibleValues[0];
-            }
-            return 0;
+            PossibleValues = possibleValues;
         }
     }
 }
