@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace SudokuHelper
 {
@@ -21,11 +20,11 @@ namespace SudokuHelper
                 Sudoku sudoku = new Sudoku(values, SudokuHandler.GetDefaultSquares());
                 SudokuHandler.PrintSudoku(sudoku);
 
-                //Stopwatch sw = Stopwatch.StartNew();
-                //SudokuHandler.SolveSudoku(sudoku);
-                //sw.Stop();
-                //Console.WriteLine("Time: {0}ms, {1}ticks", sw.ElapsedMilliseconds, sw.ElapsedTicks);
-                //SudokuHandler.PrintSudoku(sudoku);
+                Stopwatch sw = Stopwatch.StartNew();
+                SudokuHandler.SolveSudoku(sudoku);
+                sw.Stop();
+                Console.WriteLine("Time: {0}ms, {1}ticks", sw.ElapsedMilliseconds, sw.ElapsedTicks);
+                SudokuHandler.PrintSudoku(sudoku);
             }
             Console.ReadKey();
         }
@@ -234,7 +233,25 @@ namespace SudokuHelper
 
         public static void SolveSudoku(Sudoku sudoku)
         {
+            bool complete = false;
+            while (!complete)
+            {
+                List<Group> groups = new List<Group>();
+                complete = true;
+                foreach (var group in sudoku.Groups)
+                {
+                    var newFields = SolveGroup(group.Fields, group.Fields.Where(g => g.PossibleValues.Length == 1).Select(g => g.PossibleValues[0]));
+                    var newGroup = new Group(newFields, Sudoku.IsGroupComplete(newFields));
+                    
+                    if (!newGroup.Complete)
+                    {
+                        complete = false;
+                    }
 
+                    groups.Add(newGroup);
+                }
+                sudoku.Groups = groups;
+            }
         }
 
         public static void PrintSudoku(Sudoku sudoku)
@@ -244,45 +261,49 @@ namespace SudokuHelper
             for (int i = 0; i < sudoku.Groups.Count; i++)
             {
                 IEnumerable<Field> row = fields.Where(f => f.Row == i).OrderBy(f => f.Column);
-                foreach (var position in row)
+                foreach (var field in row)
                 {
-                    int value = position.PossibleValues.Length == 1 ? position.PossibleValues[0] : 0;
+                    int value = Sudoku.GetValueOrDefault(field);
                     Console.Write(value);
                 }
                 Console.WriteLine();
             }
         }
+
+        private static ImmList<Field> SolveGroup(ImmList<Field> group, ImmList<int> fixFields)
+        {
+            var field = group.First;
+            int value = Sudoku.GetValueOrDefault(field);
+            var newFields = group.RemoveFirst();
+            if (newFields.Length > 0)
+            {
+                var newGroup = SolveGroup(newFields, value == 0 ? fixFields : fixFields.AddLast(value)); 
+            }
+
+            return group.AddFirst(new Field(field.Row, field.Column, Sudoku.RemoveFixValuesFromPossibleValues(field.PossibleValues, fixFields)));
+        }
     }
 
     class Sudoku
     {
-        public readonly List<Group> Groups;
+        public List<Group> Groups;
 
         public Sudoku(int[][] values, List<List<Tuple<int, int>>> groups)
         {
-            List<Field> fields = new List<Field>();
+            var fields = new List<Field>();
             for (int i = 0; i < values.Length; i++)
             {
                 for (int j = 0; j < values[i].Length; j++)
                 {
-                    Field field;
                     int value = values[i][j];
-                    if (value == 0)
-                    {
-                        field = new Field(i, j, Enumerable.Range(1, values.Length).ToImmList());
-                    }
-                    else
-                    {
-                        field = new Field(i, j, ImmList.Of(value));
-                    }
-                    fields.Add(field);
+                    fields.Add(value == 0 ? new Field(i, j, Enumerable.Range(1, values.Length).ToImmList()) : new Field(i, j, ImmList.Of(value)));
                 }
             }
 
             Groups = new List<Group>();
             foreach (var group in groups)
             {
-                List<Field> fieldList = new List<Field>();
+                var fieldList = new List<Field>();
                 foreach (var field in fields)
                 {
                     foreach (var position in group)
@@ -297,19 +318,31 @@ namespace SudokuHelper
             }
         }
 
-        public static bool IsGroupComplete(Group group)
+        public static bool IsGroupComplete(ImmList<Field> group)
         {
-            return group.Fields.All(f => f.PossibleValues.Count() == 1);
+            return group.All(f => f.PossibleValues.Count() == 1);
+        }
+
+        public static int GetValueOrDefault(Field field)
+        {
+            return field.PossibleValues.Length == 1 ? field.PossibleValues[0] : 0;
+        }
+
+        public static ImmList<int> RemoveFixValuesFromPossibleValues(ImmList<int> values, ImmList<int> fixValues)
+        {
+            return values.Where(v => !fixValues.Contains(v)).ToImmList();
         }
     }
 
     struct Group
     {
         public readonly ImmList<Field> Fields;
+        public readonly bool Complete;
 
-        public Group(IEnumerable<Field> fields)
+        public Group(IEnumerable<Field> fields, bool complete = false)
         {
             Fields = fields.ToImmList();
+            Complete = complete;
         }
     }
 
