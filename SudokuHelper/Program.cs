@@ -70,150 +70,18 @@ namespace SudokuHelper
 
     static class Sudoku
     {
-        public static ImmList<ImmList<Tuple<int, int>>> GetDefaultGroups()
+        public static ImmList<ImmList<int>> GetDefaultGroups(int highestValue)
         {
-            var square1 = ImmList.Of(
-                new Tuple<int,int>(0,0),
-                new Tuple<int,int>(0,1),
-                new Tuple<int,int>(0,2),
-                new Tuple<int,int>(1,1),
-                new Tuple<int,int>(1,2),
-                new Tuple<int,int>(1,3),
-                new Tuple<int,int>(2,1),
-                new Tuple<int,int>(2,2),
-                new Tuple<int,int>(2,3)
-            );
-            
-            var square2 = ImmList.Of(
-                new Tuple<int,int>(4,0),
-                new Tuple<int,int>(4,1),
-                new Tuple<int,int>(4,2),
-                new Tuple<int,int>(5,1),
-                new Tuple<int,int>(5,2),
-                new Tuple<int,int>(5,3),
-                new Tuple<int,int>(6,1),
-                new Tuple<int,int>(6,2),
-                new Tuple<int,int>(6,3)
-            );
-            
-            var square3 = ImmList.Of(
-                new Tuple<int,int>(7,0),
-                new Tuple<int,int>(7,1),
-                new Tuple<int,int>(7,2),
-                new Tuple<int,int>(8,1),
-                new Tuple<int,int>(8,2),
-                new Tuple<int,int>(8,3),
-                new Tuple<int,int>(9,1),
-                new Tuple<int,int>(9,2),
-                new Tuple<int,int>(9,3)
-            );
-            
-            var square4 = ImmList.Of(
-                new Tuple<int,int>(0,4),
-                new Tuple<int,int>(0,5),
-                new Tuple<int,int>(0,6),
-                new Tuple<int,int>(1,4),
-                new Tuple<int,int>(1,5),
-                new Tuple<int,int>(1,6),
-                new Tuple<int,int>(2,4),
-                new Tuple<int,int>(2,5),
-                new Tuple<int,int>(2,6)
-            );
-            
-            var square5 = ImmList.Of(
-                new Tuple<int,int>(3,4),
-                new Tuple<int,int>(3,5),
-                new Tuple<int,int>(3,6),
-                new Tuple<int,int>(4,4),
-                new Tuple<int,int>(4,5),
-                new Tuple<int,int>(4,6),
-                new Tuple<int,int>(5,4),
-                new Tuple<int,int>(5,5),
-                new Tuple<int,int>(5,6)
-            );
-            
-            var square6 = ImmList.Of(
-                new Tuple<int,int>(6,4),
-                new Tuple<int,int>(6,5),
-                new Tuple<int,int>(6,6),
-                new Tuple<int,int>(7,4),
-                new Tuple<int,int>(7,5),
-                new Tuple<int,int>(7,6),
-                new Tuple<int,int>(8,4),
-                new Tuple<int,int>(8,5),
-                new Tuple<int,int>(8,6)
-            );
-
-            var square7 = ImmList.Of(
-                new Tuple<int,int>(0,7),
-                new Tuple<int,int>(0,8),
-                new Tuple<int,int>(0,9),
-                new Tuple<int,int>(1,7),
-                new Tuple<int,int>(1,8),
-                new Tuple<int,int>(1,9),
-                new Tuple<int,int>(2,7),
-                new Tuple<int,int>(2,8),
-                new Tuple<int,int>(2,9)
-            );
-            
-            var square8 = ImmList.Of(
-                new Tuple<int,int>(4,7),
-                new Tuple<int,int>(4,8),
-                new Tuple<int,int>(4,9),
-                new Tuple<int,int>(5,7),
-                new Tuple<int,int>(5,8),
-                new Tuple<int,int>(5,9),
-                new Tuple<int,int>(6,7),
-                new Tuple<int,int>(6,8),
-                new Tuple<int,int>(6,9)
-            );
-            
-            var square9 = ImmList.Of(
-                new Tuple<int,int>(7,7),
-                new Tuple<int,int>(7,8),
-                new Tuple<int,int>(7,9),
-                new Tuple<int,int>(8,7),
-                new Tuple<int,int>(8,8),
-                new Tuple<int,int>(8,9),
-                new Tuple<int,int>(9,7),
-                new Tuple<int,int>(9,8),
-                new Tuple<int,int>(9,9)
-            );
-
-            var groups = new List<ImmList<Tuple<int,int>>>();
-            for (int i = 0; i < 9; i++)
+            var groups = new List<ImmList<int>>();
+            for (int i = 0; i < highestValue; i++)
             {
-                var row = ImmList.Of(
-                    new Tuple<int,int>(i,0),
-                    new Tuple<int,int>(i,1),
-                    new Tuple<int,int>(i,2),
-                    new Tuple<int,int>(i,3),
-                    new Tuple<int,int>(i,4),
-                    new Tuple<int,int>(i,5),
-                    new Tuple<int,int>(i,6),
-                    new Tuple<int,int>(i,7),
-                    new Tuple<int,int>(i,8)
-                );
-                groups.Add(row);
-
-                var column = ImmList.Of(
-                    new Tuple<int,int>(0,i),
-                    new Tuple<int,int>(1,i),
-                    new Tuple<int,int>(2,i),
-                    new Tuple<int,int>(3,i),
-                    new Tuple<int,int>(4,i),
-                    new Tuple<int,int>(5,i),
-                    new Tuple<int,int>(6,i),
-                    new Tuple<int,int>(7,i),
-                    new Tuple<int,int>(8,i)
-                );
-                groups.Add(column);
+                groups.Add(GetRowGroupIndices(i, highestValue));
+                groups.Add(GetColumnGroupIndices(i, highestValue));
             }
-
-            return ImmList.Of(square1, square2, square3, square4, square5, square6, square7, square8, square9).AddLastRange(groups);
+            return groups.ToImmList();
         }
 
-        public static Optional<ImmMap<(int row, int column), ImmList<int>>> Solve(ImmList<ImmList<Tuple<int, int>>> groups, ImmMap<(int row, int column), ImmList<int>> fields)
+        public static Optional<ImmMap<(int row, int column), ImmList<int>>> Solve(ImmList<ImmList<(int row, int column)>> groups, ImmMap<(int row, int column), ImmList<int>> fields)
         {
             return Optional.None;
         }
@@ -240,5 +108,38 @@ namespace SudokuHelper
         {
             return values.Where(v => !fixValues.Contains(v)).ToImmList();
         }
+
+        private static ImmList<int> GetRowGroupIndices(int row, int highestValue)
+        {
+            var startValue = row * highestValue;
+            return GetRowGroupIndices(row, highestValue, startValue, ImmList.Of(startValue));
+        }
+
+        private static ImmList<int> GetRowGroupIndices(int row, int highestValue, int value, ImmList<int> values)
+        {
+            if (values.Length >= highestValue) return values;
+
+            int newValue = value + 1;
+            return GetRowGroupIndices(newValue, highestValue, newValue, values.AddLast(newValue));
+        }
+
+        private static ImmList<int> GetColumnGroupIndices(int column, int highestValue)
+        {
+            return GetColumnGroupIndices(column, highestValue, column, ImmList.Of(column));
+        }
+
+        private static ImmList<int> GetColumnGroupIndices(int column, int highestValue, int value, ImmList<int> values)
+        {
+            if (values.Length >= highestValue) return values;
+
+            int newValue = value + highestValue;
+            return GetColumnGroupIndices(newValue, highestValue, newValue, values.AddLast(newValue));
+        }
+
+        private static ImmList<int> GetSquareGroupIndices(int square, int highestValue, int squareHeight, int squareWidth)
+        {
+            return null;
+        }
+
     }
 }
