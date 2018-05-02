@@ -12,30 +12,35 @@ namespace SudokuHelper
         static void Main(string[] args)
         {
             int highestValue = 9;
+            int squareColumnCount = 3;
+            int squareRowCount = 3;
+            int squareHeight = 3;
+            int squareWidth = 3;
+
             Console.WriteLine("Sudoku path:");
             string pathInput = Console.ReadLine();
             var values = ImportSudoku(pathInput, highestValue);
 
             if (values.Length > 0)
             {
-                Sudoku.PrintSudoku(values, highestValue);
+                Sudoku.PrintSudoku(values, highestValue, squareColumnCount, squareRowCount, squareHeight, squareWidth);
 
-                var groups = Sudoku.GetDefaultGroups();
+                var groups = Sudoku.GetDefaultGroups(highestValue, squareColumnCount, squareRowCount, squareHeight, squareWidth);
                 Stopwatch sw = Stopwatch.StartNew();
                 var solved = Sudoku.Solve(groups, values);
                 sw.Stop();
                 Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
                 if (solved.IsSome)
                 {
-                    Sudoku.PrintSudoku(solved.Value, highestValue); 
+                    Sudoku.PrintSudoku(solved.Value, highestValue, squareColumnCount, squareRowCount, squareHeight, squareWidth); 
                 }
             }
             Console.ReadKey();
         }
 
-        private static ImmMap<(int row, int column), ImmList<int>> ImportSudoku(string path, int highestValue)
+        private static ImmMap<int, ImmList<int>> ImportSudoku(string path, int highestValue)
         {
-            Dictionary<(int row, int column), ImmList<int>> fields = new Dictionary<(int row, int column), ImmList<int>>();
+            Dictionary<int, ImmList<int>> fields = new Dictionary<int, ImmList<int>>();
             try
             {
                 using (StreamReader r = File.OpenText(path))
@@ -56,13 +61,13 @@ namespace SudokuHelper
             return fields.ToImmMap();
         }
 
-        private static void SetRowFieldsOutOfStringLine(Dictionary<(int row, int column), ImmList<int>> fields, string line, int row, int highestValue)
+        private static void SetRowFieldsOutOfStringLine(Dictionary<int, ImmList<int>> fields, string line, int row, int highestValue)
         {
             for (int i = 0; i < line.Length; i++)
             {
                 if (int.TryParse(line[i].ToString(), out int value))
                 {
-                    fields.Add((row: row, column: i), value == 0 ? Enumerable.Range(1, highestValue).ToImmList() : ImmList.Of(value));
+                    fields.Add(row * highestValue + i, value == 0 ? Enumerable.Range(1, highestValue).ToImmList() : ImmList.Of(value));
                 }
             }
         }
@@ -70,7 +75,7 @@ namespace SudokuHelper
 
     static class Sudoku
     {
-        public static ImmList<ImmList<int>> GetDefaultGroups(int highestValue)
+        public static ImmList<ImmList<int>> GetDefaultGroups(int highestValue, int squareColumnCount, int squareRowCount, int squareHeight, int squareWidth)
         {
             var groups = new List<ImmList<int>>();
             for (int i = 0; i < highestValue; i++)
@@ -78,22 +83,29 @@ namespace SudokuHelper
                 groups.Add(GetRowGroupIndices(i, highestValue));
                 groups.Add(GetColumnGroupIndices(i, highestValue));
             }
+            for (int i = 0; i < squareRowCount; i++)
+            {
+                for (int j = 0; j < squareColumnCount; j++)
+                {
+                    int startValue = j * squareWidth + i * squareHeight * highestValue;
+                    groups.Add(GetSquareGroupIndices(startValue, highestValue, squareHeight, squareWidth)); 
+                }
+            }
             return groups.ToImmList();
         }
 
-        public static Optional<ImmMap<(int row, int column), ImmList<int>>> Solve(ImmList<ImmList<(int row, int column)>> groups, ImmMap<(int row, int column), ImmList<int>> fields)
+        public static Optional<ImmMap<int, ImmList<int>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields)
         {
             return Optional.None;
         }
 
-        public static void PrintSudoku(ImmMap<(int row, int column), ImmList<int>> fields, int highestValue)
+        public static void PrintSudoku(ImmMap<int, ImmList<int>> fields, int highestValue, int squareColumnCount, int squareRowCount, int squareHeight, int squareWidth)
         {
             for (int i = 0; i < highestValue; i++)
             {
-                var row = fields.Where(f => f.Key.row == i).OrderBy(f => f.Key.column);
-                foreach (var field in row)
+                for (int j = 0; j < highestValue; j++)
                 {
-                    Console.Write(GetValueOrDefault(field.Value));
+                    Console.Write(GetValueOrDefault(fields[i * highestValue + j]));
                 }
                 Console.WriteLine();
             }
@@ -136,9 +148,18 @@ namespace SudokuHelper
             return GetColumnGroupIndices(newValue, highestValue, newValue, values.AddLast(newValue));
         }
 
-        private static ImmList<int> GetSquareGroupIndices(int square, int highestValue, int squareHeight, int squareWidth)
+        private static ImmList<int> GetSquareGroupIndices(int squareStartValue, int highestValue, int squareHeight, int squareWidth)
         {
-            return null;
+            var result = new List<int>();
+            for (int i = 0; i < squareHeight; i++)
+            {
+                int value = squareStartValue + i * highestValue;
+                for (int j = 0; j < squareWidth; j++)
+                {
+                    result.Add(value + j);
+                }
+            }
+            return result.ToImmList();
         }
 
     }
