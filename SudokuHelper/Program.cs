@@ -30,10 +30,7 @@ namespace SudokuHelper
                 var solved = Sudoku.Solve(groups, values);
                 sw.Stop();
                 Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                if (solved.IsSome)
-                {
-                    Sudoku.PrintSudoku(solved.Value, highestValue, squareColumnCount, squareRowCount, squareHeight, squareWidth); 
-                }
+                Sudoku.PrintSudoku(solved, highestValue, squareColumnCount, squareRowCount, squareHeight, squareWidth); 
             }
             Console.ReadKey();
         }
@@ -83,20 +80,20 @@ namespace SudokuHelper
                 groups.Add(GetRowGroupIndices(i, highestValue));
                 groups.Add(GetColumnGroupIndices(i, highestValue));
             }
-            for (int i = 0; i < squareRowCount; i++)
+            for (int row = 0; row < squareRowCount; row++)
             {
-                for (int j = 0; j < squareColumnCount; j++)
+                for (int column = 0; column < squareColumnCount; column++)
                 {
-                    int startValue = j * squareWidth + i * squareHeight * highestValue;
+                    int startValue = column * squareWidth + row * squareHeight * highestValue;
                     groups.Add(GetSquareGroupIndices(startValue, highestValue, squareHeight, squareWidth)); 
                 }
             }
             return groups.ToImmList();
         }
 
-        public static Optional<ImmMap<int, ImmList<int>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields)
+        public static ImmMap<int, ImmList<int>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields)
         {
-            return Optional.None;
+            return SolveField(groups, fields, 0);
         }
 
         public static void PrintSudoku(ImmMap<int, ImmList<int>> fields, int highestValue, int squareColumnCount, int squareRowCount, int squareHeight, int squareWidth)
@@ -111,12 +108,20 @@ namespace SudokuHelper
             }
         }
 
-        public static int GetValueOrDefault(ImmList<int> field)
+        private static int GetValueOrDefault(ImmList<int> field)
         {
             return field.Length == 1 ? field[0] : 0;
         }
 
-        public static ImmList<int> RemoveFixValuesFromPossibleValues(ImmList<int> values, ImmList<int> fixValues)
+        private static ImmMap<int, ImmList<int>> SolveField(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields, int i)
+        {
+            var field = fields[i];
+            var newField = RemoveFixValuesFromPossibleValues(field, groups.Where(g => g.Contains(i) && fields[i].Length == 1).SelectMany(g => g).ToImmList());
+            var newFields = fields.Remove(i).Add(i, newField);
+            return SolveField(groups, newFields, i + 1);
+        }
+
+        private static ImmList<int> RemoveFixValuesFromPossibleValues(ImmList<int> values, ImmList<int> fixValues)
         {
             return values.Where(v => !fixValues.Contains(v)).ToImmList();
         }
@@ -161,6 +166,5 @@ namespace SudokuHelper
             }
             return result.ToImmList();
         }
-
     }
 }
