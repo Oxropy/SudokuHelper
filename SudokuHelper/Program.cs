@@ -94,15 +94,7 @@ namespace SudokuHelper
 
         public static ImmMap<int, ImmList<int>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields, int highestValue)
         {
-            while (true)
-            {
-                var newFields = SolveField(groups, fields, 0);
-                if (newFields.All(f => f.Value.Length == 1))
-                {
-                    return newFields;
-                }
-                PrintSudoku(fields, highestValue);
-            }
+            return SolveField(groups, fields, highestValue, 0);
         }
 
         public static void PrintSudoku(ImmMap<int, ImmList<int>> fields, int highestValue)
@@ -133,18 +125,26 @@ namespace SudokuHelper
             }
         }
 
-        private static ImmMap<int, ImmList<int>> SolveField(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields, int i)
+        private static ImmMap<int, ImmList<int>> SolveField(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<int>> fields, int highestValue, int i)
         {
-            if (i >= fields.Length) return fields;
-
-            var field = fields[i];
-            if (field.Length > 1)
+            if (i < fields.Length)
             {
-                var newField = RemoveFixValuesFromPossibleValues(field, groups.Where(g => g.Contains(i) && fields[i].Length == 1).SelectMany(g => g).ToImmList());
-                var newFields = fields.Remove(i).Add(i, newField);
-                return SolveField(groups, newFields, i + 1); 
+                var field = fields[i];
+                if (field.Length > 1)
+                {
+                    var groupValues = groups.Where(g => g.Contains(i)).SelectMany(g => g).Distinct();
+                    var newField = RemoveFixValuesFromPossibleValues(field, fields.Where(f => groupValues.Contains(f.Key) && f.Value.Length == 1).SelectMany(f => f.Value).Distinct().ToImmList());
+                    var newFields = fields.Remove(i).Add(i, newField);
+                    return SolveField(groups, newFields, highestValue, i + 1);
+                }
+                return SolveField(groups, fields, highestValue, i + 1);
             }
-            return SolveField(groups, fields, i + 1);
+            if (fields.Any(f => f.Value.Length > 1))
+            {
+                PrintSudoku(fields, highestValue);
+                return SolveField(groups, fields, highestValue, 0);
+            }
+            return fields;
         }
 
         private static ImmList<int> RemoveFixValuesFromPossibleValues(ImmList<int> values, ImmList<int> fixValues)
