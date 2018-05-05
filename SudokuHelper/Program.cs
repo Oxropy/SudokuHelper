@@ -130,12 +130,19 @@ namespace SudokuHelper
             if (i < fields.Length)
             {
                 var field = fields[i];
-                if (field.Length > 1)
+                if (field.Length != 1)
                 {
-                    var groupValues = groups.Where(g => g.Contains(i)).SelectMany(g => g).Distinct();
-                    var newField = RemoveFixValuesFromPossibleValues(field, fields.Where(f => groupValues.Contains(f.Key) && f.Value.Length == 1).SelectMany(f => f.Value).Distinct().ToImmList());
-                    var newFields = fields.Remove(i).Add(i, newField);
-                    return SolveField(groups, newFields, highestValue, i + 1);
+                    var groupFields = groups.Where(g => g.Contains(i)).SelectMany(g => g).Distinct();
+                    var resultFixField = RemoveFixValuesFromPossibleValues(field, fields.Where(f => groupFields.Contains(f.Key) && f.Value.Length == 1).SelectMany(f => f.Value).Distinct().ToImmList());
+                    if (resultFixField.Length == 1)
+                    {
+                        var resultFixFields = fields.Remove(i).Add(i, resultFixField);
+                        return SolveField(groups, resultFixFields, highestValue, i + 1);
+                    }
+
+                    var resultUniqueField = GetUniqueValue(groupFields.Select(g => fields[g]).ToImmList(), resultFixField);
+                    var resultUniqueFields = fields.Remove(i).Add(i, resultUniqueField);
+                    return SolveField(groups, resultUniqueFields, highestValue, i + 1);
                 }
                 return SolveField(groups, fields, highestValue, i + 1);
             }
@@ -151,6 +158,22 @@ namespace SudokuHelper
         {
             return values.Where(v => !fixValues.Contains(v)).ToImmList();
         }
+
+        private static ImmList<int> GetUniqueValue(ImmList<ImmList<int>> groupValues, ImmList<int> field)
+        {
+            var value = groupValues.Where(g => g.Length != 1).SelectMany(g => g).ToList().GroupBy(g => g).Select(v => new Tuple<int, int>(v.Key, v.ToList().Count)).Where(v => v.Item2 == 1 && field.Contains(v.Item1)).ToImmList();
+            if (value.Length == 1)
+            {
+                return ImmList.Of(value[0].Item1);
+            }
+            return field;
+        }
+
+        //private static ImmList<int> RemoveValuesCauseThiesAreInAGroupOfSameValues(ImmList<int> groupFields, ImmMap<int, ImmList<int>> fields)
+        //{
+        //    var possibleValues = fields.Where(f => groupFields.Contains(f.Key) && f.Value.Length != 1).SelectMany(f => f.Value);
+
+        //}
 
         private static ImmList<int> GetRowGroupIndices(int row, int highestValue)
         {
