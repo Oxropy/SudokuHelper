@@ -20,7 +20,7 @@ namespace SudokuHelper
 
             Console.WriteLine("Sudoku path:");
             string pathInput = Console.ReadLine();
-            var values = ImportSudoku(pathInput, highestValue);
+            var values = Sudoku.ImportSudoku(pathInput, highestValue);
 
             if (values.Length > 0)
             {
@@ -31,12 +31,15 @@ namespace SudokuHelper
                 var solved = Sudoku.Solve(groups, values, highestValue);
                 sw.Stop();
                 Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                Sudoku.PrintSudoku(solved, highestValue); 
+                Sudoku.PrintSudoku(solved, highestValue);
             }
             Console.ReadKey();
         }
+    }
 
-        private static ImmMap<int, ImmList<int>> ImportSudoku(string path, int highestValue)
+    static class Sudoku
+    {
+        public static ImmMap<int, ImmList<int>> ImportSudoku(string path, int highestValue)
         {
             Dictionary<int, ImmList<int>> fields = new Dictionary<int, ImmList<int>>();
             try
@@ -59,20 +62,25 @@ namespace SudokuHelper
             return fields.ToImmMap();
         }
 
-        private static void SetRowFieldsOutOfStringLine(Dictionary<int, ImmList<int>> fields, string line, int row, int highestValue)
-        {
-            for (int i = 0; i < line.Length; i++)
-            {
-                if (int.TryParse(line[i].ToString(), out int value))
-                {
-                    fields.Add(row * highestValue + i, value == 0 ? Enumerable.Range(1, highestValue).ToImmList() : ImmList.Of(value));
-                }
-            }
-        }
-    }
+        //public static ImmList<ImmList<int>> ImportGroups(string path, int highestValue)
+        //{
+        //    try
+        //    {
+        //        using (StreamReader r = File.OpenText(path))
+        //        {
+        //            string line;
+        //            while ((line = r.ReadLine()) != null)
+        //            {
+        //                GetGroupValuesOutOfLine(highestValue, line);
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine(string.Format("Sudoku import error: {0}", ex.Message));
+        //    }
+        //}
 
-    static class Sudoku
-    {
         public static ImmList<ImmList<int>> GetDefaultGroups(int highestValue, int squareColumnCount, int squareRowCount, int squareHeight, int squareWidth)
         {
             var groups = new List<ImmList<int>>();
@@ -86,7 +94,7 @@ namespace SudokuHelper
                 for (int column = 0; column < squareColumnCount; column++)
                 {
                     int startValue = column * squareWidth + row * squareHeight * highestValue;
-                    groups.Add(GetSquareGroupIndices(startValue, highestValue, squareHeight, squareWidth)); 
+                    groups.Add(GetSquareGroupIndices(startValue, highestValue, squareHeight, squareWidth));
                 }
             }
             return groups.ToImmList();
@@ -161,10 +169,10 @@ namespace SudokuHelper
 
         private static ImmList<int> GetUniqueValue(ImmList<ImmList<int>> groupValues, ImmList<int> field)
         {
-            var value = groupValues.Where(g => g.Length != 1).SelectMany(g => g).ToList().GroupBy(g => g).Select(v => new Tuple<int, int>(v.Key, v.ToList().Count)).Where(v => v.Item2 == 1 && field.Contains(v.Item1)).ToImmList();
-            if (value.Length == 1)
+            var value = groupValues.Where(g => g.Length != 1).SelectMany(g => g).ToList().GroupBy(g => g).ToDictionary(v => v.Key, v => v.ToList().Count).Where(v => v.Value == 1 && field.Contains(v.Key)).FirstOrDefault();
+            if (value.Key != 0)
             {
-                return ImmList.Of(value[0].Item1);
+                return ImmList.Of(value.Key);
             }
             return field;
         }
@@ -214,6 +222,38 @@ namespace SudokuHelper
                 }
             }
             return result.ToImmList();
+        }
+
+        private static void SetRowFieldsOutOfStringLine(Dictionary<int, ImmList<int>> fields, string line, int row, int highestValue)
+        {
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (int.TryParse(line[i].ToString(), out int value))
+                {
+                    fields.Add(row * highestValue + i, value == 0 ? Enumerable.Range(1, highestValue).ToImmList() : ImmList.Of(value));
+                }
+            }
+        }
+
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(int highestValue, string line)
+        {
+            var values = line.Split(' ').ToImmList();
+            if (values.Length != highestValue) return null;
+
+            var index = 0;
+            return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
+        }
+
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfValues(int highestValue, int index, ImmList<string> values, ImmMap<string, ImmList<int>> groups)
+        {
+            if (index >= highestValue * highestValue)
+            {
+                var value = values.First;
+                if (!groups.ContainsKey(value)) return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Add(value, ImmList.Of(index)));
+
+                return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index))); 
+            }
+            return groups;
         }
     }
 }
