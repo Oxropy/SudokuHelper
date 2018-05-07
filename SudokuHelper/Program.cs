@@ -62,24 +62,46 @@ namespace SudokuHelper
             return fields.ToImmMap();
         }
 
-        //public static ImmList<ImmList<int>> ImportGroups(string path, int highestValue)
-        //{
-        //    try
-        //    {
-        //        using (StreamReader r = File.OpenText(path))
-        //        {
-        //            string line;
-        //            while ((line = r.ReadLine()) != null)
-        //            {
-        //                GetGroupValuesOutOfLine(highestValue, line);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine(string.Format("Sudoku import error: {0}", ex.Message));
-        //    }
-        //}
+        public static ImmList<ImmList<int>> ImportGroups(string path, int highestValue)
+        {
+            var result = new List<ImmList<int>>();
+            try
+            {
+                int row = 0;
+                var groupMap = new Dictionary<int, ImmList<int>>();
+                using (StreamReader r = File.OpenText(path))
+                {
+                    string line;
+                    while ((line = r.ReadLine()) != null)
+                    {
+                        var values = GetGroupValuesOutOfLine(highestValue, line, row);
+
+                        //foreach (var value in values)
+                        //{
+                        //    if (int.TryParse(value.Key, out int val))
+                        //    {
+                        //        if (groupMap.ContainsKey(val))
+                        //        {
+
+                        //        }
+                        //        else
+                        //        {
+                        //            groupMap.Add(val, ImmList.Of());
+                        //        }
+                        //    }
+                        //}
+
+                        row++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("Sudoku import error: {0}", ex.Message));
+            }
+
+            return result.ToImmList();
+        }
 
         public static ImmList<ImmList<int>> GetDefaultGroups(int highestValue, int squareColumnCount, int squareRowCount, int squareHeight, int squareWidth)
         {
@@ -235,25 +257,23 @@ namespace SudokuHelper
             }
         }
 
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(int highestValue, string line)
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(int highestValue, string line, int row)
         {
             var values = line.Split(' ').ToImmList();
             if (values.Length != highestValue) return null;
 
-            var index = 0;
+            var index = row * highestValue;
             return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
         }
 
         private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfValues(int highestValue, int index, ImmList<string> values, ImmMap<string, ImmList<int>> groups)
         {
-            if (index >= highestValue * highestValue)
-            {
-                var value = values.First;
-                if (!groups.ContainsKey(value)) return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Add(value, ImmList.Of(index)));
+            if (index >= highestValue) return groups;
 
-                return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index))); 
-            }
-            return groups;
+            var value = values.First;
+            if (!groups.ContainsKey(value)) return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Add(value, ImmList.Of(index)));
+
+            return GetGroupValuesOutOfValues(highestValue, index + 1, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index))); 
         }
     }
 }
