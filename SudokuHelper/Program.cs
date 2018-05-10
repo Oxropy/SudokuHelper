@@ -213,16 +213,12 @@ namespace SudokuHelper
 
         private static void SetRowFieldsOutOfStringLine(Dictionary<int, ImmList<string>> fields, string line, int row, ImmList<string> possibleValue, string undefined)
         {
-            for (int i = 0; i < line.Length; i++)
-            {
-                var value = line[i].ToString();
-                fields.Add(row * possibleValue.Length + i, value == undefined ? possibleValue : ImmList.Of(value));
-            }
+            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).ToArray().Select((v, i) => new Tuple<int, string>(i, v)).ToList().ForEach(i => fields.Add(i.Item1 + row * possibleValue.Length, i.Item2 == undefined ? possibleValue : ImmList.Of(i.Item2)));
         }
 
         private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(ImmList<string> possibleValue, string line, int row)
         {
-            var values = line.Split(' ').ToImmList();
+            var values = line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).ToImmList();
             if (values.Length != possibleValue.Length) return null;
 
             var index = row * possibleValue.Length;
