@@ -125,6 +125,11 @@ namespace SudokuHelper
                         row++;
                     }
                 }
+
+                foreach (var key in groupMap.Keys)
+                {
+                    result.Add(groupMap[key]);
+                }
             }
             catch (Exception ex)
             {
@@ -222,17 +227,17 @@ namespace SudokuHelper
             if (values.Length != possibleValue.Length) return null;
 
             var index = row * possibleValue.Length;
-            return GetGroupValuesOutOfValues(possibleValue, index + 1, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
+            return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
         }
 
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfValues(ImmList<string> possibleValue, int index, ImmList<string> values, ImmMap<string, ImmList<int>> groups)
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfValues(ImmList<string> possibleValue, int index, int row, ImmList<string> values, ImmMap<string, ImmList<int>> groups)
         {
-            if (index >= possibleValue.Length) return groups;
+            if (index >= possibleValue.Length * (row + 1)) return groups;
 
             var value = values.First;
-            if (!groups.ContainsKey(value)) return GetGroupValuesOutOfValues(possibleValue, index + 1, values.RemoveFirst(), groups.Add(value, ImmList.Of(index)));
+            if (!groups.ContainsKey(value)) return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), groups.Add(value, ImmList.Of(index)));
 
-            return GetGroupValuesOutOfValues(possibleValue, index + 1, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index)));
+            return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index)));
         }
     }
 }
