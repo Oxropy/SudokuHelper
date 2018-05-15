@@ -239,5 +239,27 @@ namespace SudokuHelper
 
             return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index)));
         }
+
+        private static ImmMap<int, ImmList<int>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index)
+        {
+            if (fields[index].Length == 1) return GetBacktrackedSolvedSudoku(fields, groups, index + 1);
+
+            return GetBacktrackedSolvedSudoku(fields, groups, index, fields[index]);
+        }
+
+        private static ImmMap<int, ImmList<int>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, ImmList<string> valuesToCheck)
+        {
+            var value = valuesToCheck.First;
+            if (IsValueValid(fields, groups, index, value))
+            {
+                return GetBacktrackedSolvedSudoku(fields, groups, index + 1);
+            }
+            return GetBacktrackedSolvedSudoku(fields, groups, index, valuesToCheck.RemoveFirst());
+        }
+
+        private static bool IsValueValid(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, string value)
+        {
+            return groups.Where(g => g.Contains(index) && g.Length == 1).SelectMany(g => g).Distinct().Select(g => fields[g]).SelectMany(g => g).Distinct().Contains(value);
+        }
     }
 }
