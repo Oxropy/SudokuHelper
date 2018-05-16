@@ -14,33 +14,31 @@ namespace SudokuHelper
         {
             Console.WriteLine("Sudoku path:");
             string pathInput = Console.ReadLine();
-            var values = Sudoku.GetDomain(pathInput);
-            if (values.Length > 1)
+            var values = Sudoku.ImportDomainAndSudoku(pathInput);
+
+            var undefined = values.Item1;
+            var possibleValues = values.Item2;
+            var sudokuValues = values.Item3;
+
+            if (sudokuValues.Length > 0)
             {
-                var undefined = values.First;
-                var possibleValues = values.RemoveFirst();
-                var sudokuValues = Sudoku.ImportSudoku(pathInput, possibleValues, undefined);
+                Sudoku.PrintSudoku(sudokuValues, possibleValues.Length);
 
-                if (sudokuValues.Length > 0)
+                var groups = new List<ImmList<int>>();
+
+                Console.WriteLine("Group path:");
+                pathInput = Console.ReadLine();
+                while (!string.IsNullOrWhiteSpace(pathInput))
                 {
-                    Sudoku.PrintSudoku(sudokuValues, possibleValues.Length);
-
-                    var groups = new List<ImmList<int>>();
-
+                    groups.AddRange(Sudoku.ImportGroups(pathInput, possibleValues));
                     Console.WriteLine("Group path:");
                     pathInput = Console.ReadLine();
-                    while (!string.IsNullOrWhiteSpace(pathInput))
-                    {
-                        groups.AddRange(Sudoku.ImportGroups(pathInput, possibleValues));
-                        Console.WriteLine("Group path:");
-                        pathInput = Console.ReadLine();
-                    }
-                    Stopwatch sw = Stopwatch.StartNew();
-                    var solved = Sudoku.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
-                    sw.Stop();
-                    Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                    Sudoku.PrintSudoku(solved, possibleValues.Length);
                 }
+                Stopwatch sw = Stopwatch.StartNew();
+                var solved = Sudoku.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
+                sw.Stop();
+                Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
+                Sudoku.PrintSudoku(solved, possibleValues.Length);
             }
             Console.ReadKey();
         }
@@ -48,9 +46,11 @@ namespace SudokuHelper
 
     static class Sudoku
     {
-        public static ImmList<string> GetDomain(string path)
+        public static Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>> ImportDomainAndSudoku(string path)
         {
-            var values = new List<string>();
+            string undefined = string.Empty;
+            ImmList<string> possibleValues = null;
+            Dictionary<int, ImmList<string>> fields = new Dictionary<int, ImmList<string>>();
             try
             {
                 using (StreamReader r = File.OpenText(path))
@@ -58,32 +58,17 @@ namespace SudokuHelper
                     string line = r.ReadLine();
                     if (line != null)
                     {
-                        values = line.ToCharArray().Select(v => v.ToString()).ToList();
+                        var values = line.ToCharArray().Select(v => v.ToString()).ToImmList();
+                        undefined = values.First;
+                        possibleValues = values.RemoveFirst();
                     }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(string.Format("Domain import error: {0}", ex.Message));
-            }
-            return values.ToImmList();
-        }
 
-        public static ImmMap<int, ImmList<string>> ImportSudoku(string path, ImmList<string> possibleValue, string undefined)
-        {
-            Dictionary<int, ImmList<string>> fields = new Dictionary<int, ImmList<string>>();
-            try
-            {
-                using (StreamReader r = File.OpenText(path))
-                {
                     int row = 0;
-                    string line;
-                    r.ReadLine(); // skip first line (domain)
                     while ((line = r.ReadLine()) != null)
                     {
                         if (!string.IsNullOrWhiteSpace(line))
                         {
-                            SetRowFieldsOutOfStringLine(fields, line, row, possibleValue, undefined);
+                            SetRowFieldsOutOfStringLine(fields, line, row, possibleValues, undefined);
                             row++;
                         }
                     }
@@ -91,9 +76,10 @@ namespace SudokuHelper
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("Sudoku import error: {0}", ex.Message));
+                Console.WriteLine(string.Format("´Sudoku import error: {0}", ex.Message));
             }
-            return fields.ToImmMap();
+
+            return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(undefined, possibleValues, fields.ToImmMap());
         }
 
         public static ImmList<ImmList<int>> ImportGroups(string path, ImmList<string> possibleValue)
@@ -209,10 +195,7 @@ namespace SudokuHelper
         private static ImmList<string> GetUniqueValue(ImmList<ImmList<string>> groupValues, ImmList<string> field, string undefined)
         {
             var value = groupValues.Where(g => g.Length != 1).SelectMany(g => g).ToList().GroupBy(g => g).ToDictionary(v => v.Key, v => v.ToList().Count).Where(v => v.Value == 1 && field.Contains(v.Key)).FirstOrDefault();
-            if (value.Key != undefined)
-            {
-                return ImmList.Of(value.Key);
-            }
+            if (value.Key != undefined) return ImmList.Of(value.Key);
             return field;
         }
 
@@ -240,20 +223,21 @@ namespace SudokuHelper
             return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), groups.Set(value, groups[value].AddLast(index)));
         }
 
-        private static ImmMap<int, ImmList<int>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index)
+        private static ImmMap<int, ImmList<string>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index)
         {
-            if (fields[index].Length == 1) return GetBacktrackedSolvedSudoku(fields, groups, index + 1);
+            if (index > fields.Length) return fields;
+
+            if (fields[index].Length == 1) return GetBacktrackedSolvedSudoku(fields, groups, index + 1); // Has value, skip
 
             return GetBacktrackedSolvedSudoku(fields, groups, index, fields[index]);
         }
 
-        private static ImmMap<int, ImmList<int>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, ImmList<string> valuesToCheck)
+        private static ImmMap<int, ImmList<string>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, ImmList<string> valuesToCheck)
         {
-            var value = valuesToCheck.First;
-            if (IsValueValid(fields, groups, index, value))
-            {
-                return GetBacktrackedSolvedSudoku(fields, groups, index + 1);
-            }
+            if (index > fields.Length) return fields;
+
+            if (IsValueValid(fields, groups, index, valuesToCheck.First)) return GetBacktrackedSolvedSudoku(fields, groups, index + 1);
+
             return GetBacktrackedSolvedSudoku(fields, groups, index, valuesToCheck.RemoveFirst());
         }
 
