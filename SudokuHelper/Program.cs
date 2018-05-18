@@ -16,29 +16,32 @@ namespace SudokuHelper
             string pathInput = Console.ReadLine();
             var values = Sudoku.ImportDomainAndSudoku(pathInput);
 
-            var undefined = values.Item1;
-            var possibleValues = values.Item2;
-            var sudokuValues = values.Item3;
-
-            if (sudokuValues.Length > 0)
+            if (values.IsSome)
             {
-                Sudoku.PrintSudoku(sudokuValues, possibleValues.Length);
+                var undefined = values.Value.Item1;
+                var possibleValues = values.Value.Item2;
+                var sudokuValues = values.Value.Item3;
 
-                var groups = new List<ImmList<int>>();
-
-                Console.WriteLine("Group path:");
-                pathInput = Console.ReadLine();
-                while (!string.IsNullOrWhiteSpace(pathInput))
+                if (sudokuValues.Length > 0)
                 {
-                    groups.AddRange(Sudoku.ImportGroups(pathInput, possibleValues));
+                    Sudoku.PrintSudoku(sudokuValues, possibleValues.Length);
+
+                    var groups = new List<ImmList<int>>();
+
                     Console.WriteLine("Group path:");
                     pathInput = Console.ReadLine();
-                }
-                Stopwatch sw = Stopwatch.StartNew();
-                var solved = Sudoku.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
-                sw.Stop();
-                Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                Sudoku.PrintSudoku(solved, possibleValues.Length);
+                    while (!string.IsNullOrWhiteSpace(pathInput))
+                    {
+                        groups.AddRange(Sudoku.ImportGroups(pathInput, possibleValues));
+                        Console.WriteLine("Group path:");
+                        pathInput = Console.ReadLine();
+                    }
+                    Stopwatch sw = Stopwatch.StartNew();
+                    var solved = Sudoku.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
+                    sw.Stop();
+                    Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
+                    Sudoku.PrintSudoku(solved, possibleValues.Length);
+                } 
             }
             Console.ReadKey();
         }
@@ -46,7 +49,7 @@ namespace SudokuHelper
 
     static class Sudoku
     {
-        public static Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>> ImportDomainAndSudoku(string path)
+        public static Optional<Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>> ImportDomainAndSudoku(string path)
         {
             try
             {
@@ -56,14 +59,16 @@ namespace SudokuHelper
                     r.ReadLine(); // empty line
                     var sudoku = GetSudoku(r, domain.Item1, domain.Item2);
 
-                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(domain.Item1, domain.Item2, sudoku);
+                    if (sudoku.IsNone) return Optional.None;
+                    
+                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(domain.Item1, domain.Item2, sudoku.Value);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine(string.Format("´Sudoku import error: {0}", ex.Message));
             }
-            return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(string.Empty, ImmList.Of(string.Empty), ImmMap.Of(new KeyValuePair<int, ImmList<string>>(0, ImmList.Of(string.Empty))));
+            return Optional.None;
         }
 
         public static ImmList<ImmList<int>> ImportGroups(string path, ImmList<string> possibleValue)
@@ -107,6 +112,70 @@ namespace SudokuHelper
             }
 
             return result.ToImmList();
+        }
+
+        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined, ImmList<string> possibleValue)
+        {
+            try
+            {
+                using (StreamReader r = File.OpenText(path))
+                {
+                    return GetGroups(r, undefined, possibleValue);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("Group import error: {0}", ex.Message));
+            }
+
+            return Optional.None;
+        }
+
+        private static Optional<ImmList<ImmList<int>>> GetGroups(StreamReader reader, string undefined, ImmList<string> possibleValue)
+        {
+            string line = reader.ReadLine();
+            if (line == null) return Optional.None;
+
+            int row = 0;
+            return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, row), row + 1);
+        }
+
+        private static ImmList<ImmList<int>> GetGroups(StreamReader reader, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
+        {
+            string line = reader.ReadLine();
+            if (line == null) return groups.Values.ToImmList();
+
+            return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, row), row + 1);
+        }
+
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, int row)
+        {
+            Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
+            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v) && v != undefined).Select((v, i) => new Tuple<string, int>(v, i)).ToList().ForEach(v => { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } });
+
+            return groupMap.ToImmMap();
+        }
+
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
+        {
+            Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
+            foreach (var item in groups)
+            {
+                groupMap.Add(item.Key, item.Value);
+            }
+
+            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v) && v != undefined).Select((v, i) => new Tuple<string, int>(v, i)).ToList().ForEach(v => { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } });
+
+            return groups.ToImmMap();
+        }
+
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(ImmList<string> possibleValue, string line, int row)
+        {
+            var values = line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).ToImmList();
+            if (values.Length != possibleValue.Length) return null;
+
+            var index = row * possibleValue.Length;
+            return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
         }
 
         public static ImmMap<int, ImmList<string>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined)
@@ -183,15 +252,6 @@ namespace SudokuHelper
             return field;
         }
 
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfLine(ImmList<string> possibleValue, string line, int row)
-        {
-            var values = line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).ToImmList();
-            if (values.Length != possibleValue.Length) return null;
-
-            var index = row * possibleValue.Length;
-            return GetGroupValuesOutOfValues(possibleValue, index + 1, row, values.RemoveFirst(), ImmMap.Of(new KeyValuePair<string, ImmList<int>>(values.First, ImmList.Of(index))));
-        }
-
         private static ImmMap<string, ImmList<int>> GetGroupValuesOutOfValues(ImmList<string> possibleValue, int index, int row, ImmList<string> values, ImmMap<string, ImmList<int>> groups)
         {
             if (index >= possibleValue.Length * (row + 1)) return groups;
@@ -237,13 +297,13 @@ namespace SudokuHelper
             return new Tuple<string, ImmList<string>>(string.Empty, ImmList.Of(string.Empty));
         }
 
-        private static ImmMap<int, ImmList<string>> GetSudoku(StreamReader reader, string undefined, ImmList<string> possibleValues)
+        private static Optional<ImmMap<int, ImmList<string>>> GetSudoku(StreamReader reader, string undefined, ImmList<string> possibleValues)
         {
             string line = reader.ReadLine();
-            if (line == null) return ImmMap.Of(new KeyValuePair<int, ImmList<string>>(0, ImmList.Of(string.Empty)));
-
+            if (line == null) return Optional.None;
+            
             int row = 0;
-            return GetSudoku(reader, undefined, possibleValues, ImmMap.Of(SetRowFieldsOutOfStringLine(line, undefined, possibleValues, row)), row + 1);
+            return GetSudoku(reader, undefined, possibleValues, ImmMap.Of(GetFieldValuesOfLine(line, undefined, possibleValues, row)), row + 1);
         }
 
         private static ImmMap<int, ImmList<string>> GetSudoku(StreamReader reader, string undefined, ImmList<string> possibleValues, ImmMap<int, ImmList<string>> sudoku, int row)
@@ -251,12 +311,12 @@ namespace SudokuHelper
             string line = reader.ReadLine();
             if (line == null) return sudoku;
 
-            return GetSudoku(reader, undefined, possibleValues, sudoku.AddRange(SetRowFieldsOutOfStringLine(line, undefined, possibleValues, row)), row + 1);
+            return GetSudoku(reader, undefined, possibleValues, sudoku.AddRange(GetFieldValuesOfLine(line, undefined, possibleValues, row)), row + 1);
         }
 
-        private static KeyValuePair<int, ImmList<string>>[] SetRowFieldsOutOfStringLine(string line, string undefined, ImmList<string> possibleValue, int row)
+        private static KeyValuePair<int, ImmList<string>>[] GetFieldValuesOfLine(string line, string undefined, ImmList<string> possibleValue, int row)
         {
-            return line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).ToArray().Select((v, i) => new Tuple<int, string>(i, v)).Select(v => new KeyValuePair<int, ImmList<string>>(v.Item1 + row * possibleValue.Length, v.Item2 == undefined ? possibleValue : ImmList.Of(v.Item2))).ToArray();
+            return line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new KeyValuePair<int, ImmList<string>>(i + row * possibleValue.Length, v == undefined ? possibleValue : ImmList.Of(v))).ToArray();
         }
     }
 }
