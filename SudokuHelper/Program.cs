@@ -263,7 +263,7 @@ namespace SudokuHelper
         private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, int row)
         {
             Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
-            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v) && v != undefined).Select((v, i) => new Tuple<string, int>(v, i)).ToList().ForEach(v => { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } });
+            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToList().ForEach(v => { if (v.Item1 != undefined) { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } } });
 
             return groupMap.ToImmMap();
         }
@@ -271,14 +271,11 @@ namespace SudokuHelper
         private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
         {
             Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
-            foreach (var item in groups)
-            {
-                groupMap.Add(item.Key, item.Value);
-            }
+            groups.ForEach(i => groupMap.Add(i.Key, i.Value));
 
-            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v) && v != undefined).Select((v, i) => new Tuple<string, int>(v, i)).ToList().ForEach(v => { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } });
+            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToList().ForEach(v => { if (v.Item1 != undefined) { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } } });
 
-            return groups.ToImmMap();
+            return groupMap.ToImmMap();
         }
     }
 }
