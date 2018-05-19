@@ -14,7 +14,7 @@ namespace SudokuHelper
         {
             Console.WriteLine("Sudoku path:");
             string pathInput = Console.ReadLine();
-            var values = Sudoku.ImportDomainAndSudoku(pathInput);
+            var values = SudokuImport.ImportDomainAndSudoku(pathInput);
 
             if (values.IsSome)
             {
@@ -24,7 +24,7 @@ namespace SudokuHelper
 
                 if (sudokuValues.Length > 0)
                 {
-                    Sudoku.PrintSudoku(sudokuValues, possibleValues.Length);
+                    SudokuPrinter.PrintSudoku(sudokuValues, possibleValues.Length);
 
                     var groups = new List<ImmList<int>>();
 
@@ -32,7 +32,7 @@ namespace SudokuHelper
                     pathInput = Console.ReadLine();
                     while (!string.IsNullOrWhiteSpace(pathInput))
                     {
-                        var group = Sudoku.ImportGroups(pathInput, undefined, possibleValues);
+                        var group = SudokuImport.ImportGroups(pathInput, undefined, possibleValues);
                         if (group.IsSome)
                         {
                             groups.AddRange(group.Value); 
@@ -40,109 +40,24 @@ namespace SudokuHelper
                         Console.WriteLine("Group path:");
                         pathInput = Console.ReadLine();
                     }
-                    Sudoku.PrintGroups(groups.ToImmList(), possibleValues.Length);
+                    SudokuPrinter.PrintGroups(groups.ToImmList(), possibleValues.Length);
 
                     Stopwatch sw = Stopwatch.StartNew();
-                    var solved = Sudoku.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
+                    var solved = SudokuSolver.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
                     sw.Stop();
                     Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                    Sudoku.PrintSudoku(solved, possibleValues.Length);
+                    SudokuPrinter.PrintSudoku(solved, possibleValues.Length);
                 } 
             }
             Console.ReadKey();
         }
     }
 
-    static class Sudoku
+    static class SudokuSolver
     {
-        public static Optional<Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>> ImportDomainAndSudoku(string path)
-        {
-            try
-            {
-                using (StreamReader r = File.OpenText(path))
-                {
-                    var domain = GetUndefinedAndPossibleValues(r);
-                    r.ReadLine(); // empty line
-                    var sudoku = GetSudoku(r, domain.Item1, domain.Item2);
-
-                    if (sudoku.IsNone) return Optional.None;
-                    
-                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(domain.Item1, domain.Item2, sudoku.Value);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(string.Format("´Sudoku import error: {0}", ex.Message));
-            }
-            return Optional.None;
-        }
-
-        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined, ImmList<string> possibleValue)
-        {
-            try
-            {
-                using (StreamReader r = File.OpenText(path))
-                {
-                    return GetGroups(r, undefined, possibleValue);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(string.Format("Group import error: {0}", ex.Message));
-            }
-
-            return Optional.None;
-        }
-
         public static ImmMap<int, ImmList<string>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined)
         {
             return SolveField(groups, fields, possibleValue, undefined, 0);
-        }
-
-        public static void PrintSudoku(ImmMap<int, ImmList<string>> fields, int valueCount)
-        {
-            for (int i = 0; i < valueCount; i++)
-            {
-                StringBuilder sb = new StringBuilder();
-                for (int j = 0; j < valueCount; j++)
-                {
-                    AppendField(sb, fields[i * valueCount + j]);
-                    sb.Append(" ");
-                }
-                Console.WriteLine(sb.ToString());
-            }
-        }
-
-        public static void PrintGroups(ImmList<ImmList<int>> groups, int valueCount)
-        {
-            foreach (var group in groups)
-            {
-                for (int i = 0; i < valueCount; i++)
-                {
-                    StringBuilder sb = new StringBuilder();
-                    for (int j = 0; j < valueCount; j++)
-                    {
-                        sb.Append(group.Contains(i * valueCount + j) ? "X" : "_");
-                        sb.Append(" ");
-                    }
-                    Console.WriteLine(sb.ToString());
-                }
-                Console.WriteLine();
-            }
-        }
-
-        private static void AppendField(StringBuilder sb, ImmList<string> field)
-        {
-            if (field.Length == 1)
-            {
-                sb.Append(field[0]);
-            }
-            else
-            {
-                sb.Append("[");
-                sb.Append(string.Join(",", field));
-                sb.Append("]");
-            }
         }
 
         private static ImmMap<int, ImmList<string>> SolveField(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined, int i)
@@ -168,7 +83,7 @@ namespace SudokuHelper
             }
             if (fields.Any(f => f.Value.Length > 1))
             {
-                PrintSudoku(fields, possibleValue.Length);
+                SudokuPrinter.PrintSudoku(fields, possibleValue.Length);
                 return SolveField(groups, fields, possibleValue, undefined, 0);
             }
             return fields;
@@ -208,6 +123,48 @@ namespace SudokuHelper
         {
             return groups.Where(g => g.Contains(index) && g.Length == 1).SelectMany(g => g).Distinct().Select(g => fields[g]).SelectMany(g => g).Distinct().Contains(value);
         }
+    }
+
+    static class SudokuImport
+    {
+        public static Optional<Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>> ImportDomainAndSudoku(string path)
+        {
+            try
+            {
+                using (StreamReader r = File.OpenText(path))
+                {
+                    var domain = GetUndefinedAndPossibleValues(r);
+                    r.ReadLine(); // empty line
+                    var sudoku = GetSudoku(r, domain.Item1, domain.Item2);
+
+                    if (sudoku.IsNone) return Optional.None;
+
+                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(domain.Item1, domain.Item2, sudoku.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("´Sudoku import error: {0}", ex.Message));
+            }
+            return Optional.None;
+        }
+
+        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined, ImmList<string> possibleValue)
+        {
+            try
+            {
+                using (StreamReader r = File.OpenText(path))
+                {
+                    return GetGroups(r, undefined, possibleValue);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("Group import error: {0}", ex.Message));
+            }
+
+            return Optional.None;
+        }
 
         private static Tuple<string, ImmList<string>> GetUndefinedAndPossibleValues(StreamReader reader)
         {
@@ -225,7 +182,7 @@ namespace SudokuHelper
         {
             string line = reader.ReadLine();
             if (line == null) return Optional.None;
-            
+
             int row = 0;
             return GetSudoku(reader, undefined, possibleValues, ImmMap.Of(GetFieldValuesOfLine(line, undefined, possibleValues, row)), row + 1);
         }
@@ -276,6 +233,55 @@ namespace SudokuHelper
             line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToList().ForEach(v => { if (v.Item1 != undefined) { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } } });
 
             return groupMap.ToImmMap();
+        }
+    }
+
+    static class SudokuPrinter
+    {
+        public static void PrintSudoku(ImmMap<int, ImmList<string>> fields, int valueCount)
+        {
+            for (int i = 0; i < valueCount; i++)
+            {
+                StringBuilder sb = new StringBuilder();
+                for (int j = 0; j < valueCount; j++)
+                {
+                    AppendField(sb, fields[i * valueCount + j]);
+                    sb.Append(" ");
+                }
+                Console.WriteLine(sb.ToString());
+            }
+        }
+
+        public static void PrintGroups(ImmList<ImmList<int>> groups, int valueCount)
+        {
+            foreach (var group in groups)
+            {
+                for (int i = 0; i < valueCount; i++)
+                {
+                    StringBuilder sb = new StringBuilder();
+                    for (int j = 0; j < valueCount; j++)
+                    {
+                        sb.Append(group.Contains(i * valueCount + j) ? "X" : "_");
+                        sb.Append(" ");
+                    }
+                    Console.WriteLine(sb.ToString());
+                }
+                Console.WriteLine();
+            }
+        }
+
+        private static void AppendField(StringBuilder sb, ImmList<string> field)
+        {
+            if (field.Length == 1)
+            {
+                sb.Append(field[0]);
+            }
+            else
+            {
+                sb.Append("[");
+                sb.Append(string.Join(",", field));
+                sb.Append("]");
+            }
         }
     }
 }
