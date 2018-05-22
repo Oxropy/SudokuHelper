@@ -231,26 +231,29 @@ namespace SudokuHelper
         {
             string line = reader.ReadLine();
             if (line == null) return groups.Values.ToImmList();
+            if (string.IsNullOrWhiteSpace(line)) return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, groups, row), row + 1);
 
             return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, groups, row), row + 1);
         }
 
         private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, int row)
         {
-            Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
-            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToList().ForEach(v => { if (v.Item1 != undefined) { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } } });
-
-            return groupMap.ToImmMap();
+            return GetGroupValuesOfLine(new Dictionary<string, ImmList<int>>().ToImmMap(), line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToImmList());
         }
 
         private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
         {
-            Dictionary<string, ImmList<int>> groupMap = new Dictionary<string, ImmList<int>>();
-            groups.ForEach(i => groupMap.Add(i.Key, i.Value));
+            return GetGroupValuesOfLine(groups, line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToImmList());
+        }
 
-            line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToList().ForEach(v => { if (v.Item1 != undefined) { if (groupMap.ContainsKey(v.Item1)) { groupMap[v.Item1] = groupMap[v.Item1].AddLast(v.Item2); } else { groupMap.Add(v.Item1, ImmList.Of(v.Item2)); } } });
+        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(ImmMap<string, ImmList<int>> groups, ImmList<Tuple<string, int>> values)
+        {
+            var value = values.TryFirst;
+            if (value.IsNone) return groups;
 
-            return groupMap.ToImmMap();
+            ImmList<int> indexList = groups.ContainsKey(value.Value.Item1) ? groups[value.Value.Item1].AddLast(value.Value.Item2) : ImmList.Of(value.Value.Item2);
+
+            return GetGroupValuesOfLine(groups.Set(value.Value.Item1, indexList), values.RemoveFirst());
         }
     }
 
