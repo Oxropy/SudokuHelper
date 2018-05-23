@@ -48,8 +48,8 @@ namespace SudokuHelper
                     Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
                     if (solved.IsSome)
                     {
-                        SudokuPrinter.PrintSudoku(solved.Value, possibleValues.Length); 
-                    } 
+                        SudokuPrinter.PrintSudoku(solved.Value, possibleValues.Length);
+                    }
                     else
                     {
                         Console.WriteLine("Unsolved!");
@@ -173,7 +173,7 @@ namespace SudokuHelper
             {
                 using (StreamReader r = File.OpenText(path))
                 {
-                    return GetGroups(r, undefined, possibleValue);
+                    return GetGroups(r, undefined);
                 }
             }
             catch (Exception ex)
@@ -218,42 +218,35 @@ namespace SudokuHelper
             return line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new KeyValuePair<int, ImmList<string>>(i + row * possibleValue.Length, v == undefined ? possibleValue : ImmList.Of(v))).ToArray();
         }
 
-        private static Optional<ImmList<ImmList<int>>> GetGroups(StreamReader reader, string undefined, ImmList<string> possibleValue)
+        private static Optional<ImmList<ImmList<int>>> GetGroups(StreamReader r, string undefined)
         {
-            string line = reader.ReadLine();
-            if (line == null) return Optional.None;
-
-            int row = 0;
-            return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, row), row + 1);
+            return GetGroups(r, undefined, new List<ImmList<int>>().ToImmList(), new Dictionary<string, ImmList<int>>().ToImmMap(), 0, "");
         }
 
-        private static ImmList<ImmList<int>> GetGroups(StreamReader reader, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
+        private static Optional<ImmList<ImmList<int>>> GetGroups(StreamReader r, string undefined, ImmList<ImmList<int>> groups, ImmMap<string, ImmList<int>> groupMap, int index, string group, bool isnewLine = false)
         {
-            string line = reader.ReadLine();
-            if (line == null) return groups.Values.ToImmList();
-            if (string.IsNullOrWhiteSpace(line)) return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, groups, row), row + 1);
+            if (r.EndOfStream) return groupMap.Length > 0 ? groups.AddLastRange(groupMap.Select(g => g.Value)) : groups;
 
-            return GetGroups(reader, undefined, possibleValue, GetGroupValuesOfLine(line, undefined, possibleValue, groups, row), row + 1);
+            var groupChar = (char)r.Read();
+            if (groupChar == '\n')
+            {
+                if (isnewLine) return GetGroups(r, undefined, groups.AddLastRange(groupMap.Select(g => g.Value)), new Dictionary<string, ImmList<int>>().ToImmMap(), 0, "");
+                return GetGroups(r, undefined, groups, addGroupToMap(groupMap, undefined, index, group), getIndex(index, group), "", true);
+            }
+            if (char.IsWhiteSpace(groupChar)) return GetGroups(r, undefined, groups, addGroupToMap(groupMap, undefined, index, group), getIndex(index, group), "");
+            return GetGroups(r, undefined, groups, groupMap, index, group + groupChar);
         }
 
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, int row)
+        private static ImmMap<string, ImmList<int>> addGroupToMap(ImmMap<string, ImmList<int>> groupMap, string undefined, int index, string group)
         {
-            return GetGroupValuesOfLine(new Dictionary<string, ImmList<int>>().ToImmMap(), line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToImmList());
+            if (string.IsNullOrWhiteSpace(group) || group == undefined) return groupMap;
+            return groupMap.Set(group, groupMap.ContainsKey(group) ? groupMap[group].AddLast(index) : ImmList.Of(index));
         }
 
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(string line, string undefined, ImmList<string> possibleValue, ImmMap<string, ImmList<int>> groups, int row)
+        private static int getIndex(int index, string group)
         {
-            return GetGroupValuesOfLine(groups, line.Split(' ').Where(v => !string.IsNullOrWhiteSpace(v)).Select((v, i) => new Tuple<string, int>(v, i + possibleValue.Length * row)).ToImmList());
-        }
-
-        private static ImmMap<string, ImmList<int>> GetGroupValuesOfLine(ImmMap<string, ImmList<int>> groups, ImmList<Tuple<string, int>> values)
-        {
-            var value = values.TryFirst;
-            if (value.IsNone) return groups;
-
-            ImmList<int> indexList = groups.ContainsKey(value.Value.Item1) ? groups[value.Value.Item1].AddLast(value.Value.Item2) : ImmList.Of(value.Value.Item2);
-
-            return GetGroupValuesOfLine(groups.Set(value.Value.Item1, indexList), values.RemoveFirst());
+            if (string.IsNullOrWhiteSpace(group)) return index;
+            return index + 1;
         }
     }
 
