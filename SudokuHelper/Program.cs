@@ -22,8 +22,7 @@ namespace SudokuHelper
                 var possibleValues = values.Value.Item2;
                 var sudokuValues = values.Value.Item3;
 
-                if (sudokuValues.Length > 0
-                    && sudokuValues.All(v => v.Value.Length == possibleValues.Length))
+                if (sudokuValues.Length > 0)
                 {
                     SudokuPrinter.PrintSudoku(sudokuValues, possibleValues.Length);
 
@@ -156,11 +155,15 @@ namespace SudokuHelper
             {
                 using (StreamReader r = File.OpenText(path))
                 {
-                    var domain = GetUndefinedAndPossibleValues(r);
-                    if (!string.IsNullOrWhiteSpace(r.ReadLine())) return Optional.None; // empty line
-                    var sudoku = GetSudoku(r, domain.Item1, domain.Item2);
+                    var replacedSplit = r.ReadToEnd().Replace("\r\n", "\n").Split(new[] { ' ', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).ToImmList();
 
-                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(domain.Item1, domain.Item2, sudoku);
+                    var firstLine = replacedSplit.First.Select(c => c.ToString()).ToImmList();
+                    var undefined = firstLine.First;
+                    var possibleValues = firstLine.RemoveFirst();
+
+                    var fields = replacedSplit.RemoveFirst().Select((v, i) => new KeyValuePair<int, ImmList<string>>(i, v == undefined ? possibleValues : ImmList.Of(v))).ToImmMap();
+
+                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(undefined, possibleValues, fields);
                 }
             }
             catch (Exception ex)
@@ -185,36 +188,6 @@ namespace SudokuHelper
             }
 
             return Optional.None;
-        }
-
-        private static Tuple<string, ImmList<string>> GetUndefinedAndPossibleValues(StreamReader r)
-        {
-            string line = r.ReadLine();
-            if (line == null) return new Tuple<string, ImmList<string>>(string.Empty, ImmList.Of(string.Empty));
-
-            var values = line.Select(v => v.ToString()).ToImmList();
-            return new Tuple<string, ImmList<string>>(values.First, values.RemoveFirst());
-        }
-
-        private static ImmMap<int, ImmList<string>> GetSudoku(StreamReader r, string undefined, ImmList<string> possibleValues)
-        {
-            return GetSudoku(r, undefined, possibleValues, new Dictionary<int, ImmList<string>>().ToImmMap(), 0, "");
-        }
-
-        private static ImmMap<int, ImmList<string>> GetSudoku(StreamReader r, string undefined, ImmList<string> possibleValues, ImmMap<int, ImmList<string>> fields, int index, string field)
-        {
-            if (r.EndOfStream) return !string.IsNullOrWhiteSpace(field) ? AddFieldToMap(fields, undefined, possibleValues, index, field) : fields;
-
-            var fieldChar = (char)r.Read();
-            if (char.IsWhiteSpace(fieldChar)) return GetSudoku(r, undefined, possibleValues, AddFieldToMap(fields, undefined, possibleValues, index, field), GetIndex(index, field), "");
-            return GetSudoku(r, undefined, possibleValues, fields, index, field + fieldChar);
-        }
-
-        private static ImmMap<int, ImmList<string>> AddFieldToMap(ImmMap<int, ImmList<string>> fields, string undefined, ImmList<string> possibleValues, int index, string field)
-        {
-            if (string.IsNullOrWhiteSpace(field)) return fields;
-            if (field == undefined) return fields.Add(index, possibleValues.ToImmList());
-            return fields.Add(index, ImmList.Of(field));
         }
 
         private static ImmList<ImmList<int>> GetGroups(StreamReader r, string undefined)
