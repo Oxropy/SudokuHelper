@@ -13,15 +13,15 @@ namespace SudokuHelper
     {
         static void Main(string[] args)
         {
+            const string undefined = "_";
             Console.WriteLine("Sudoku path:");
             string pathInput = Console.ReadLine();
-            var values = SudokuImport.ImportDomainAndSudoku(pathInput);
+            var values = SudokuImport.ImportDomainAndSudoku(pathInput, undefined);
 
             if (values.IsSome)
             {
-                var undefined = values.Value.Item1;
-                var possibleValues = values.Value.Item2;
-                var sudokuValues = values.Value.Item3;
+                var possibleValues = values.Value.Item1;
+                var sudokuValues = values.Value.Item2;
 
                 if (sudokuValues.Length > 0)
                 {
@@ -33,7 +33,7 @@ namespace SudokuHelper
                     pathInput = Console.ReadLine();
                     while (!string.IsNullOrWhiteSpace(pathInput))
                     {
-                        var group = SudokuImport.ImportGroups(pathInput, undefined);
+                        var group = SudokuImport.ImportGroups(pathInput, undefined, possibleValues.Length);
                         if (group.IsSome)
                         {
                             groups.AddRange(group.Value);
@@ -42,7 +42,7 @@ namespace SudokuHelper
                         pathInput = Console.ReadLine();
                     }
 
-                    if (groups.All(g => g.Length == possibleValues.Length))
+                    if (groups.Count > 0)
                     {
                         SudokuPrinter.PrintGroups(groups.ToImmList(), possibleValues.Length);
 
@@ -50,14 +50,9 @@ namespace SudokuHelper
                         var solved = SudokuSolver.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
                         sw.Stop();
                         Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-                        if (solved.IsSome)
-                        {
-                            SudokuPrinter.PrintSudoku(solved.Value, possibleValues.Length);
-                        }
-                        else
-                        {
-                            Console.WriteLine("Unsolved!");
-                        }
+
+                        if (solved.IsSome) SudokuPrinter.PrintSudoku(solved.Value, possibleValues.Length);
+                        else Console.WriteLine("Unsolved!");
                     }
                 }
             }
@@ -150,21 +145,19 @@ namespace SudokuHelper
 
     static class SudokuImport
     {
-        public static Optional<Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>> ImportDomainAndSudoku(string path)
+        public static Optional<Tuple<ImmList<string>, ImmMap<int, ImmList<string>>>> ImportDomainAndSudoku(string path, string undefined)
         {
             try
             {
                 using (StreamReader r = File.OpenText(path))
                 {
                     var replacedSplit = r.ReadToEnd().Replace("\r\n", "\n").Split(new[] { ' ', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).ToImmList();
-
-                    var firstLine = replacedSplit.First.Select(c => c.ToString()).ToImmList();
-                    var undefined = firstLine.First;
-                    var possibleValues = firstLine.RemoveFirst();
-
+                    var possibleValues = replacedSplit.First.Select(c => c.ToString()).ToImmList();
                     var fields = replacedSplit.RemoveFirst().Select((v, i) => new KeyValuePair<int, ImmList<string>>(i, v == undefined ? possibleValues : ImmList.Of(v))).ToImmMap();
 
-                    return new Tuple<string, ImmList<string>, ImmMap<int, ImmList<string>>>(undefined, possibleValues, fields);
+                    if (fields.Where(f => f.Value.Length == 1).Any(f => f.Value.First != undefined && !possibleValues.Contains(f.Value.First))) return Optional.None;
+
+                    return new Tuple<ImmList<string>, ImmMap<int, ImmList<string>>>(possibleValues, fields);
                 }
             }
             catch (Exception ex)
@@ -174,14 +167,23 @@ namespace SudokuHelper
             return Optional.None;
         }
 
-        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined)
+        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined, int length)
         {
             try
             {
                 using (StreamReader r = File.OpenText(path))
                 {
                     var file = r.ReadToEnd().Replace("\r\n", "\n").Replace("\r", "\n");
-                    return Regex.Split(file, "\\n\\n", RegexOptions.IgnorePatternWhitespace).Select(g => g.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Select(g => g.Select((v, i) => new Tuple<string, int>(v, i)).Where(v => v.Item1 != undefined).GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<string, ImmList<int>>(k, v.ToImmList())).ToImmMap()).SelectMany(g => g.Values).ToImmList();
+                    var groups = Regex.Split(file, "\\n\\n", RegexOptions.IgnorePatternWhitespace)
+                        .Select(g => g.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                        .Select(g => g.Select((v, i) => new Tuple<string, int>(v, i))
+                        .Where(v => v.Item1 != undefined)
+                        .GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<string, ImmList<int>>(k, v.ToImmList()))
+                        .ToImmMap()).SelectMany(g => g.Values).ToImmList();
+
+                    if (groups.Any(g => g.Length != length)) return Optional.None;
+
+                    return groups;
                 }
             }
             catch (Exception ex)
