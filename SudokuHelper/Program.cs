@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SudokuHelper
 {
@@ -179,50 +180,15 @@ namespace SudokuHelper
             {
                 using (StreamReader r = File.OpenText(path))
                 {
-                    return GetGroups(r, undefined);
+                    var file = r.ReadToEnd().Replace("\r\n", "\n").Replace("\r", "\n");
+                    return Regex.Split(file, "\\n\\n", RegexOptions.IgnorePatternWhitespace).Select(g => g.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Select(g => g.Select((v, i) => new Tuple<string, int>(v, i))).Select(g => g.GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<string, ImmList<int>>(k, v.ToImmList())).ToImmMap()).SelectMany(g => g.Values).ToImmList();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine(string.Format("Group import error: {0}", ex.Message));
             }
-
             return Optional.None;
-        }
-
-        private static ImmList<ImmList<int>> GetGroups(StreamReader r, string undefined)
-        {
-            return GetGroups(r, undefined, new List<ImmList<int>>().ToImmList(), new Dictionary<string, ImmList<int>>().ToImmMap(), 0, "");
-        }
-
-        private static ImmList<ImmList<int>> GetGroups(StreamReader r, string undefined, ImmList<ImmList<int>> groups, ImmMap<string, ImmList<int>> groupMap, int index, string group, bool isnewLine = false)
-        {
-            if (r.EndOfStream)
-            {
-                if (!string.IsNullOrWhiteSpace(group)) return groups.AddLastRange(AddGroupToMap(groupMap, undefined, index, group).Select(g => g.Value));
-                return groupMap.Length > 0 ? groups.AddLastRange(groupMap.Select(g => g.Value)) : groups;
-            }
-
-            var groupChar = (char)r.Read();
-            if (groupChar == '\n')
-            {
-                if (isnewLine) return GetGroups(r, undefined, groups.AddLastRange(groupMap.Select(g => g.Value)), new Dictionary<string, ImmList<int>>().ToImmMap(), 0, "");
-                return GetGroups(r, undefined, groups, AddGroupToMap(groupMap, undefined, index, group), GetIndex(index, group), "", true);
-            }
-            if (char.IsWhiteSpace(groupChar)) return GetGroups(r, undefined, groups, AddGroupToMap(groupMap, undefined, index, group), GetIndex(index, group), "");
-            return GetGroups(r, undefined, groups, groupMap, index, group + groupChar);
-        }
-
-        private static ImmMap<string, ImmList<int>> AddGroupToMap(ImmMap<string, ImmList<int>> groupMap, string undefined, int index, string group)
-        {
-            if (string.IsNullOrWhiteSpace(group) || group == undefined) return groupMap;
-            return groupMap.Set(group, groupMap.ContainsKey(group) ? groupMap[group].AddLast(index) : ImmList.Of(index));
-        }
-
-        private static int GetIndex(int index, string value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return index;
-            return index + 1;
         }
     }
 
