@@ -33,7 +33,7 @@ namespace SudokuHelper
                     pathInput = Console.ReadLine();
                     while (!string.IsNullOrWhiteSpace(pathInput))
                     {
-                        var group = SudokuImport.ImportGroups(pathInput, undefined, possibleValues);
+                        var group = SudokuImport.ImportGroups(pathInput, undefined);
                         if (group.IsSome)
                         {
                             groups.AddRange(group.Value);
@@ -174,14 +174,14 @@ namespace SudokuHelper
             return Optional.None;
         }
 
-        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined, ImmList<string> possibleValue)
+        public static Optional<ImmList<ImmList<int>>> ImportGroups(string path, string undefined)
         {
             try
             {
                 using (StreamReader r = File.OpenText(path))
                 {
                     var file = r.ReadToEnd().Replace("\r\n", "\n").Replace("\r", "\n");
-                    return Regex.Split(file, "\\n\\n", RegexOptions.IgnorePatternWhitespace).Select(g => g.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Select(g => g.Select((v, i) => new Tuple<string, int>(v, i))).Select(g => g.GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<string, ImmList<int>>(k, v.ToImmList())).ToImmMap()).SelectMany(g => g.Values).ToImmList();
+                    return Regex.Split(file, "\\n\\n", RegexOptions.IgnorePatternWhitespace).Select(g => g.Split(new[] { ' ', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Select(g => g.Select((v, i) => new Tuple<string, int>(v, i)).Where(v => v.Item1 != undefined).GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<string, ImmList<int>>(k, v.ToImmList())).ToImmMap()).SelectMany(g => g.Values).ToImmList();
                 }
             }
             catch (Exception ex)
