@@ -47,7 +47,7 @@ namespace SudokuHelper
                         SudokuPrinter.PrintGroups(groups.ToImmList(), possibleValues.Length);
 
                         Stopwatch sw = Stopwatch.StartNew();
-                        var solved = SudokuSolver.Solve(groups.ToImmList(), sudokuValues, possibleValues, undefined);
+                        var solved = Solver.Solve(groups.ToImmList(), sudokuValues);
                         sw.Stop();
                         Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
 
@@ -57,6 +57,47 @@ namespace SudokuHelper
                 }
             }
             Console.ReadKey();
+        }
+    }
+
+    static class Solver
+    {
+        public static Optional<ImmMap<int, ImmList<string>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields)
+        {
+            return GetBacktrackedSolvedSudokuNoneTest(groups, fields, 0, Optional.None);
+        }
+
+        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudokuNoneTest(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index, Optional<ImmList<string>> checkValues)
+        {
+            if (!fields.ContainsKey(index)) return fields;
+            if (checkValues.IsSome && checkValues.Value.Length == 0) return Optional.None;
+            if (checkValues.IsNone && fields[index].Length > 1) return GetBacktrackedSolvedSudoku(groups, fields, index, fields[index]);
+            var newFields = GetBacktrackedSolvedSudoku(groups, fields, index, checkValues);
+            if (newFields.IsNone && checkValues.IsNone) return Optional.None;
+            if (newFields.IsNone && checkValues.IsSome) return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index, checkValues.Value.RemoveFirst());
+            return newFields;
+        }
+
+        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index, Optional<ImmList<string>> checkValues)
+        {
+            if (checkValues.IsNone) return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index + 1, Optional.None);
+
+            var fieldsWithNewCheckValue = fields.Set(index, ImmList.Of(checkValues.Value.First));
+            if (IsValueValid(groups, fieldsWithNewCheckValue, index)) return GetBacktrackedSolvedSudokuNoneTest(groups, fieldsWithNewCheckValue, index + 1, Optional.None);
+            if (checkValues.Value.TryFirst.IsNone) return Optional.None;
+            return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index, checkValues.Value.RemoveFirst());
+        }
+
+        private static bool IsValueValid(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index)
+        {
+            return groups.Where(g => g.Contains(index)) // groups which contains this field
+                .SelectMany(g => g)
+                .Distinct() // distinct same index
+                .Select(g => fields[g]) // get real field value
+                .Where(g => g.Length == 1) // remove unsolved fields
+                .SelectMany(g => g)
+                .Where(g => g == fields[index].First) // find value to valid
+                .Count() == 1; // value is unique
         }
     }
 
@@ -208,6 +249,7 @@ namespace SudokuHelper
                 }
                 Console.WriteLine(sb.ToString());
             }
+            Console.WriteLine();
         }
 
         public static void PrintGroups(ImmList<ImmList<int>> groups, int valueCount)
