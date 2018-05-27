@@ -47,7 +47,7 @@ namespace SudokuHelper
                         SudokuPrinter.PrintGroups(groups.ToImmList(), possibleValues.Length);
 
                         Stopwatch sw = Stopwatch.StartNew();
-                        var solved = Solver.Solve(groups.ToImmList(), sudokuValues);
+                        var solved = SudokuSolver.Solve(groups.ToImmList(), sudokuValues);
                         sw.Stop();
                         Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
 
@@ -60,7 +60,7 @@ namespace SudokuHelper
         }
     }
 
-    static class Solver
+    static class SudokuSolver
     {
         public static Optional<ImmMap<int, ImmList<string>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields)
         {
@@ -98,89 +98,6 @@ namespace SudokuHelper
                 .SelectMany(g => g)
                 .Where(g => g == fields[index].First) // find value to valid
                 .Count() == 1; // value is unique
-        }
-    }
-
-    static class SudokuSolver
-    {
-        public static Optional<ImmMap<int, ImmList<string>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined)
-        {
-            return SolveFields(groups, fields, possibleValue, undefined, 0, fields);
-        }
-
-        private static Optional<ImmMap<int, ImmList<string>>> SolveFields(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined, int i, ImmMap<int, ImmList<string>> fieldsStartValues)
-        {
-            var fieldsEndValues = SolveField(groups, fields, possibleValue, undefined, i);
-
-            if (fieldsEndValues.IsNone) return Optional.None;
-
-            if (fields.All(f => f.Value.Length == 1)) return fieldsEndValues;
-
-            SudokuPrinter.PrintSudoku(fields, possibleValue.Length);
-
-            if (!fields.Values.SequenceEqual(fieldsStartValues.Values)) return SolveFields(groups, fields, possibleValue, undefined, 0, fieldsEndValues.Value);
-
-            return GetBacktrackedSolvedSudoku(fields, groups, 0);
-        }
-
-        private static Optional<ImmMap<int, ImmList<string>>> SolveField(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, ImmList<string> possibleValue, string undefined, int i)
-        {
-            if (i < fields.Length)
-            {
-                var field = fields[i];
-                if (field.Length != 1)
-                {
-                    var groupFields = groups.Where(g => g.Contains(i)).SelectMany(g => g).Distinct();
-                    var resultFixField = RemoveFixValuesFromPossibleValues(field, fields.Where(f => groupFields.Contains(f.Key) && f.Value.Length == 1).SelectMany(f => f.Value).Distinct().ToImmList());
-                    if (resultFixField.Length == 1) return SolveField(groups, fields.Set(i, resultFixField), possibleValue, undefined, i + 1);
-
-                    var resultUniqueFields = fields.Set(i, GetUniqueValue(groupFields.Select(g => fields[g]).ToImmList(), resultFixField, undefined));
-                    return SolveField(groups, resultUniqueFields, possibleValue, undefined, i + 1);
-                }
-                return SolveField(groups, fields, possibleValue, undefined, i + 1);
-            }
-            return fields;
-        }
-
-        private static ImmList<string> RemoveFixValuesFromPossibleValues(ImmList<string> values, ImmList<string> fixValues)
-        {
-            return values.Where(v => !fixValues.Contains(v)).ToImmList();
-        }
-
-        private static ImmList<string> GetUniqueValue(ImmList<ImmList<string>> groupValues, ImmList<string> field, string undefined)
-        {
-            var value = groupValues.Where(g => g.Length != 1).SelectMany(g => g).ToList().GroupBy(g => g).ToDictionary(v => v.Key, v => v.ToList().Count).Where(v => v.Value == 1 && field.Contains(v.Key)).FirstOrDefault();
-            if (value.Key != null && value.Key != undefined) return ImmList.Of(value.Key);
-            return field;
-        }
-
-        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index)
-        {
-            if (index > fields.Length) return fields;
-
-            if (fields[index].Length == 1) return GetBacktrackedSolvedSudoku(fields, groups, index + 1); // Has value, skip
-
-            return GetBacktrackedSolvedSudoku(fields, groups, index, fields[index]);
-        }
-
-        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, ImmList<string> valuesToCheck)
-        {
-            if (index > fields.Length) return fields;
-
-            var valueToCheck = valuesToCheck.TryFirst;
-            if (valueToCheck.IsNone) return Optional.None;
-
-            if (!IsValueValid(fields, groups, index, valueToCheck.Value)) return GetBacktrackedSolvedSudoku(fields, groups, index, valuesToCheck.RemoveFirst());
-
-            var sudoku = GetBacktrackedSolvedSudoku(fields.Set(index, ImmList.Of(valueToCheck.Value)), groups, index + 1);
-            if (sudoku.IsNone) return GetBacktrackedSolvedSudoku(fields, groups, index, valuesToCheck.RemoveFirst());
-
-            return fields;
-        }
-
-        private static bool IsValueValid(ImmMap<int, ImmList<string>> fields, ImmList<ImmList<int>> groups, int index, string value)
-        {
-            return groups.Where(g => g.Contains(index) && g.Length == 1).SelectMany(g => g).Distinct().Select(g => fields[g]).SelectMany(g => g).Distinct().Contains(value);
         }
     }
 
