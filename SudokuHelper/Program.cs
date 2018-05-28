@@ -64,31 +64,28 @@ namespace SudokuHelper
     {
         public static Optional<ImmMap<int, ImmList<string>>> Solve(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields)
         {
-            return GetBacktrackedSolvedSudokuNoneTest(groups, fields, 0, Optional.None);
+            return GetBacktrackedSolvedSudoku(groups, fields, 0);
         }
 
-        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudokuNoneTest(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index, Optional<ImmList<string>> checkValues)
+        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index)
         {
             if (!fields.ContainsKey(index)) return fields;
-            if (checkValues.IsSome && checkValues.Value.Length == 0) return Optional.None;
-            if (checkValues.IsNone && fields[index].Length > 1) return GetBacktrackedSolvedSudoku(groups, fields, index, fields[index]);
-            var newFields = GetBacktrackedSolvedSudoku(groups, fields, index, checkValues);
-            if (newFields.IsNone && checkValues.IsNone) return Optional.None;
-            if (newFields.IsNone && checkValues.IsSome) return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index, checkValues.Value.RemoveFirst());
+            if (fields[index].Length == 1) return GetBacktrackedSolvedSudoku(groups, fields, index + 1);
+            return GetBacktrackedSolvedSudoku(groups, fields, index, fields[index]);
+        }
+
+        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index, ImmList<string> checkValues)
+        {
+            var nextValue = checkValues.TryFirst;
+            if (nextValue.IsNone) return Optional.None;
+            if (!IsValueValid(groups, fields, nextValue.Value, index)) return GetBacktrackedSolvedSudoku(groups, fields, index, checkValues.RemoveFirst());
+
+            var newFields = GetBacktrackedSolvedSudoku(groups, fields.Set(index, ImmList.Of(nextValue.Value)), index + 1);
+            if (newFields.IsNone) return GetBacktrackedSolvedSudoku(groups, fields, index, checkValues.RemoveFirst());
             return newFields;
         }
 
-        private static Optional<ImmMap<int, ImmList<string>>> GetBacktrackedSolvedSudoku(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index, Optional<ImmList<string>> checkValues)
-        {
-            if (checkValues.IsNone) return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index + 1, Optional.None);
-
-            var fieldsWithNewCheckValue = fields.Set(index, ImmList.Of(checkValues.Value.First));
-            if (IsValueValid(groups, fieldsWithNewCheckValue, index)) return GetBacktrackedSolvedSudokuNoneTest(groups, fieldsWithNewCheckValue, index + 1, Optional.None);
-            if (checkValues.Value.TryFirst.IsNone) return Optional.None;
-            return GetBacktrackedSolvedSudokuNoneTest(groups, fields, index, checkValues.Value.RemoveFirst());
-        }
-
-        private static bool IsValueValid(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, int index)
+        private static bool IsValueValid(ImmList<ImmList<int>> groups, ImmMap<int, ImmList<string>> fields, string value, int index)
         {
             return groups.Where(g => g.Contains(index)) // groups which contains this field
                 .SelectMany(g => g)
@@ -96,8 +93,8 @@ namespace SudokuHelper
                 .Select(g => fields[g]) // get real field value
                 .Where(g => g.Length == 1) // remove unsolved fields
                 .SelectMany(g => g)
-                .Where(g => g == fields[index].First) // find value to valid
-                .Count() == 1; // value is unique
+                .Where(g => g == value) // find value to valid
+                .Count() == 0; // value is not set
         }
     }
 
