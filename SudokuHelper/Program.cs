@@ -27,30 +27,20 @@ namespace SudokuHelper
                 {
                     SudokuPrinter.PrintSudoku(sudokuValues, possibleValues.Count);
 
-                    var groups = new HashSet<HashSet<int>>();
-
                     Console.WriteLine("Group path:");
                     pathInput = Console.ReadLine();
-                    while (!string.IsNullOrWhiteSpace(pathInput))
-                    {
-                        var grouped = SudokuImport.ImportGroups(pathInput, undefined, possibleValues.Count);
-                        if (grouped.IsSome)
-                        {
-                            foreach (var group in grouped.Value)
-                            {
-                                groups.Add(group);
-                            }
-                        }
-                        Console.WriteLine("Group path:");
-                        pathInput = Console.ReadLine();
-                    }
 
-                    if (groups.Count > 0)
+                    var groups = SudokuImport.ImportGroups(pathInput, undefined, possibleValues.Count, 0);
+                    
+                    if (groups.IsSome)
                     {
-                        SudokuPrinter.PrintGroups(groups, possibleValues.Count);
+                        var fieldindexToGroupIndex = groups.Value.Item1;
+                        var groupIndexToFieldIndex = groups.Value.Item2;
+
+                        SudokuPrinter.PrintGroups(groupIndexToFieldIndex, possibleValues.Count);
 
                         Stopwatch sw = Stopwatch.StartNew();
-                        var solved = SudokuSolver.Solve(groups, sudokuValues, possibleValues, undefined);
+                        var solved = SudokuSolver.Solve(fieldindexToGroupIndex, groupIndexToFieldIndex, sudokuValues, possibleValues, undefined);
                         sw.Stop();
                         Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
 
@@ -65,38 +55,38 @@ namespace SudokuHelper
 
     static class SudokuSolver
     {
-        public static Optional<ImmMap<int, char>> Solve(HashSet<HashSet<int>> groups, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined)
+        public static Optional<ImmMap<int, char>> Solve(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined)
         {
-            return GetBacktrackedSolvedSudoku(groups, fields, possibleValues, undefined, 0);
+            return GetBacktrackedSolvedSudoku(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, 0);
         }
 
-        private static Optional<ImmMap<int, char>> GetBacktrackedSolvedSudoku(HashSet<HashSet<int>> groups, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index)
+        private static Optional<ImmMap<int, char>> GetBacktrackedSolvedSudoku(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index)
         {
             if (!fields.ContainsKey(index)) return fields;
-            if (fields[index] != undefined) return GetBacktrackedSolvedSudoku(groups, fields, possibleValues, undefined, index + 1);
-            var possible = GetPossibleValues(groups, fields, possibleValues, undefined, index);
+            if (fields[index] != undefined) return GetBacktrackedSolvedSudoku(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, index + 1);
+            var possible = GetPossibleValues(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, index);
             if (possible.Length == 0) return Optional.None;
-            return GetBacktrackedSolvedSudoku(groups, fields, possibleValues, undefined, index, possible);
+            return GetBacktrackedSolvedSudoku(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, index, possible);
         }
 
-        private static Optional<ImmMap<int, char>> GetBacktrackedSolvedSudoku(HashSet<HashSet<int>> groups, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index, ImmList<char> checkValues)
+        private static Optional<ImmMap<int, char>> GetBacktrackedSolvedSudoku(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index, ImmList<char> checkValues)
         {
             var nextValue = checkValues.TryFirst;
             if (nextValue.IsNone) return Optional.None;
 
-            var newFields = GetBacktrackedSolvedSudoku(groups, fields.Set(index, nextValue.Value), possibleValues, undefined, index + 1);
-            if (newFields.IsNone) return GetBacktrackedSolvedSudoku(groups, fields, possibleValues, undefined, index, checkValues.RemoveFirst());
+            var newFields = GetBacktrackedSolvedSudoku(fieldindexToGroupIndex, groupIndexToFieldIndex, fields.Set(index, nextValue.Value), possibleValues, undefined, index + 1);
+            if (newFields.IsNone) return GetBacktrackedSolvedSudoku(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, index, checkValues.RemoveFirst());
             return newFields;
         }
 
-        private static ImmList<char> GetPossibleValues(HashSet<HashSet<int>> groups, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index)
+        private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, int index)
         {
-            var impossibleValues = new HashSet<char>(groups.Where(g => g.Contains(index)) // groups which contains this field
+            var impossibleValues = new HashSet<char>(fieldindexToGroupIndex[index]
+                .Select(g => groupIndexToFieldIndex[g])
                 .SelectMany(g => g)
-                .Distinct() // distinct same index
-                .Select(g => fields[g]) // get real field value
-                .Where(g => g != undefined) // remove unsolved fields
-                .Distinct());
+                .Select(g => fields[g])
+                .Where(g => g != undefined));
+
             return possibleValues.Where(f => !impossibleValues.Contains(f)).ToImmList();
         }
     }
@@ -120,12 +110,12 @@ namespace SudokuHelper
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("´Sudoku import error: {0}", ex.Message));
+                Console.WriteLine("Sudoku import error: {0}", ex.Message);
             }
             return Optional.None;
         }
 
-        public static Optional<HashSet<HashSet<int>>> ImportGroups(string path, char undefined, int length)
+        public static Optional<Tuple<ImmMap<int, HashSet<int>>, ImmMap<int, HashSet<int>>>> ImportGroups(string path, char undefined, int length, int groupindexStart)
         {
             try
             {
@@ -137,16 +127,25 @@ namespace SudokuHelper
                         .Select((v, i) => new Tuple<char, int>(v, i))
                         .Where(v => v.Item1 != undefined)
                         .GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<char, HashSet<int>>(k, new HashSet<int>(v)))
-                        .ToImmMap()).SelectMany(g => g.Values);
+                        .ToImmMap());
 
-                    if (groups.Any(g => g.Count != length)) return Optional.None;
+                    var groupIndexToFieldIndex = groups.Select((g, gi) => g.Select((v, i) => new KeyValuePair<int, HashSet<int>>(i + (gi * 10) + (groupindexStart * 100), v.Value)))
+                        .SelectMany(g => g)
+                        .ToImmMap();
 
-                    return new HashSet<HashSet<int>>(groups);
+                    var fieldindexToGroupIndex = groupIndexToFieldIndex.Select(g => g.Value.Select(v => new Tuple<int, int>(v, g.Key)))
+                        .SelectMany(g => g)
+                        .GroupBy(g => g.Item1, g => g.Item2, (k, v) => new KeyValuePair<int, HashSet<int>>(k, new HashSet<int>(v)))
+                        .ToImmMap();
+
+                    if (groupIndexToFieldIndex.Any(g => g.Value.Count != length)) return Optional.None;
+
+                    return new Tuple<ImmMap<int, HashSet<int>>, ImmMap<int, HashSet<int>>>(fieldindexToGroupIndex, groupIndexToFieldIndex);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("Group import error: {0}", ex.Message));
+                Console.WriteLine("Group import error: {0}", ex.Message);
             }
             return Optional.None;
         }
@@ -169,8 +168,10 @@ namespace SudokuHelper
             Console.WriteLine();
         }
 
-        public static void PrintGroups(HashSet<HashSet<int>> groups, int valueCount)
+        public static void PrintGroups(ImmMap<int, HashSet<int>> groupIndexToFieldIndex, int valueCount)
         {
+            var groups = groupIndexToFieldIndex.Values.ToImmList();
+
             foreach (var group in groups)
             {
                 for (int i = 0; i < valueCount; i++)
