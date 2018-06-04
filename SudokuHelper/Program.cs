@@ -77,7 +77,8 @@ namespace SudokuHelper
             var undefinedIndexValue = undefinedIndex.TryFirst;
             if (undefinedIndexValue.IsNone) return fields;
 
-            var possible = GetPossibleValues(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, undefinedValues);
+            var impossibleIndex = GetImpossibleIndex(fieldindexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex);
+            var possible = GetPossibleValues(fields, possibleValues, impossibleIndex);
             return GetBacktrackedUndefined(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, undefinedValues, possible);
         }
 
@@ -91,15 +92,18 @@ namespace SudokuHelper
             return GetBacktrackedUndefined(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, undefinedValues, checkValues.RemoveFirst());
         }
 
-        private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex, ImmMap<int, ImmList<char>> undefinedValues)
+        private static ImmSet<int> GetImpossibleIndex(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, char undefined, ImmList<int> undefinedIndex)
         {
-            var impossibleValues = fieldindexToGroupIndex[undefinedIndex.First]
+            return fieldindexToGroupIndex[undefinedIndex.First]
                 .Select(g => groupIndexToFieldIndex[g])
                 .SelectMany(g => g)
                 .Except(undefinedIndex)
-                .Select(g => fields[g])
                 .ToImmSet();
+        }
 
+        private static ImmList<char> GetPossibleValues(ImmMap<int, char> fields, HashSet<char> possibleValues, ImmSet<int> impossibleIndex)
+        {
+            var impossibleValues = impossibleIndex.Select(g => fields[g]).ToImmSet();
             return possibleValues.Except(impossibleValues).ToImmList();
         }
     }
