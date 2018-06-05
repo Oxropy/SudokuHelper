@@ -33,7 +33,7 @@ namespace SudokuHelper
                     pathInput = Console.ReadLine();
 
                     var groups = SudokuImport.ImportGroups(pathInput, undefined, possibleValues.Count, 0);
-                    
+
                     if (groups.IsSome)
                     {
                         var fieldindexToGroupIndex = groups.Value.Item1;
@@ -69,6 +69,8 @@ namespace SudokuHelper
     {
         public static Optional<ImmMap<int, char>> Solve(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex, ImmMap<int, ImmList<char>> undefinedValues)
         {
+            var fieldsWithPossible = GetPossibleFields(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, new Dictionary<int, ImmList<char>>().ToImmMap());
+
             return GetBacktracked(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, undefinedValues);
         }
 
@@ -105,6 +107,14 @@ namespace SudokuHelper
         {
             var impossibleValues = impossibleIndex.Select(g => fields[g]).ToImmSet();
             return possibleValues.Except(impossibleValues).ToImmList();
+        }
+
+        private static Optional<ImmMap<int, ImmList<char>>> GetPossibleFields(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, char> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex, ImmMap<int, ImmList<char>> newFields, int index = 0)
+        {
+            if (index >= fields.Length + undefinedIndex.Length) return newFields;
+            if (fields.ContainsKey(index)) return GetPossibleFields(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, newFields.Set(index, ImmList.Of(fields[index])), index + 1);
+            if (undefinedIndex.Contains(index)) return GetPossibleFields(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex, newFields.Set(index, GetPossibleValues(fields, possibleValues, GetImpossibleIndex(fieldindexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex))), index + 1);
+            return Optional.None;
         }
     }
 
