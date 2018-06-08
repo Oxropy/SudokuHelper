@@ -35,7 +35,7 @@ namespace SudokuHelper
 
                     if (groups.IsSome)
                     {
-                        var fieldindexToGroupIndex = groups.Value.Item1;
+                        var fieldIndexToGroupIndex = groups.Value.Item1;
                         var groupIndexToFieldIndex = groups.Value.Item2;
 
                         SudokuPrinter.PrintGroups(groupIndexToFieldIndex, possibleValues.Count);
@@ -43,7 +43,7 @@ namespace SudokuHelper
                         //TestCycles(100, fieldindexToGroupIndex, groupIndexToFieldIndex, sudokuValues, possibleValues, undefined, undefinedIndex, undefinedValues);
 
                         Stopwatch sw = Stopwatch.StartNew();
-                        var solved = SudokuSolver.Solve(fieldindexToGroupIndex, groupIndexToFieldIndex, sudokuValues, possibleValues, undefined, undefinedIndex);
+                        var solved = SudokuSolver.Solve(fieldIndexToGroupIndex, groupIndexToFieldIndex, sudokuValues, possibleValues, undefined, undefinedIndex);
                         sw.Stop();
                         Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
 
@@ -55,48 +55,50 @@ namespace SudokuHelper
             Console.ReadKey();
         }
 
-        static void TestCycles(int times, ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
+        static void TestCycles(int times, ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
         {
             for (int i = 0; i < times; i++)
             {
-                SudokuSolver.Solve(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
+                SudokuSolver.Solve(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
             }
         }
     }
 
     static class SudokuSolver
     {
-        public static Optional<ImmMap<int, ImmList<char>>> Solve(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
+        public static Optional<ImmMap<int, ImmList<char>>> Solve(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
         {
-            var fieldsWithPossible = GetPossibleFields(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
-            if (fieldsWithPossible.IsNone) return Optional.None;
-            
-            return GetBacktracked(fieldindexToGroupIndex, groupIndexToFieldIndex, fieldsWithPossible.Value, possibleValues, undefined, undefinedIndex);
+            var fieldsWithPossible = GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
+            var fieldsWithUnique = GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, undefinedIndex);
+
+            if (fieldsWithUnique.Item2.Length == 0) return fieldsWithUnique.Item1;
+
+            return GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithUnique.Item1, possibleValues, undefined, fieldsWithUnique.Item2);
         }
 
-        private static Optional<ImmMap<int, ImmList<char>>> GetBacktracked(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
+        private static Optional<ImmMap<int, ImmList<char>>> GetBacktracked(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
         {
             var undefinedIndexValue = undefinedIndex.TryFirst;
             if (undefinedIndexValue.IsNone) return fields;
 
-            var impossibleIndex = GetImpossibleIndex(fieldindexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex);
+            var impossibleIndex = GetImpossibleIndex(fieldIndexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex);
             var possible = GetPossibleValues(fields, possibleValues, impossibleIndex);
-            return GetBacktrackedUndefined(fieldindexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
+            return GetBacktrackedUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, possibleValues, undefined, undefinedIndex);
         }
 
-        private static Optional<ImmMap<int, ImmList<char>>> GetBacktrackedUndefined(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
+        private static Optional<ImmMap<int, ImmList<char>>> GetBacktrackedUndefined(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
         {
             var nextValue = fields[undefinedIndex.First].TryFirst;
             if (nextValue.IsNone) return Optional.None;
 
-            var newFields = GetBacktracked(fieldindexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), possibleValues, undefined, undefinedIndex.RemoveFirst());
+            var newFields = GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), possibleValues, undefined, undefinedIndex.RemoveFirst());
             if (newFields.IsSome) return newFields;
-            return GetBacktrackedUndefined(fieldindexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), possibleValues, undefined, undefinedIndex);
+            return GetBacktrackedUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), possibleValues, undefined, undefinedIndex);
         }
 
-        private static ImmSet<int> GetImpossibleIndex(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, char undefined, ImmList<int> undefinedIndex)
+        private static ImmSet<int> GetImpossibleIndex(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, char undefined, ImmList<int> undefinedIndex)
         {
-            return fieldindexToGroupIndex[undefinedIndex.First]
+            return fieldIndexToGroupIndex[undefinedIndex.First]
                 .Select(g => groupIndexToFieldIndex[g])
                 .SelectMany(g => g)
                 .Except(undefinedIndex)
@@ -109,14 +111,40 @@ namespace SudokuHelper
             return possibleValues.Except(impossibleValues).ToImmList();
         }
 
-        private static Optional<ImmMap<int, ImmList<char>>> GetPossibleFields(ImmMap<int, HashSet<int>> fieldindexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
+        private static ImmMap<int, ImmList<char>> GetPossibleFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> possibleValues, char undefined, ImmList<int> undefinedIndex)
         {
             var index = undefinedIndex.TryFirst;
             if (index.IsNone) return fields;
 
-            var impossibleValues = GetImpossibleIndex(fieldindexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex);
+            var impossibleValues = GetImpossibleIndex(fieldIndexToGroupIndex, groupIndexToFieldIndex, undefined, undefinedIndex);
             var possibleValue = GetPossibleValues(fields, possibleValues, impossibleValues);
-            return GetPossibleFields(fieldindexToGroupIndex, groupIndexToFieldIndex, fields.Set(index.Value, possibleValue), possibleValues, undefined, undefinedIndex);
+            return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(index.Value, possibleValue), possibleValues, undefined, undefinedIndex.RemoveFirst());
+        }
+
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetUniqueFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex)
+        {
+            var index = undefinedIndex.TryFirst;
+            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+
+            var valuesInGroups = fieldIndexToGroupIndex[index.Value].Intersect(undefinedIndex).Select(f => fields[f].Select(v => new Tuple<int, char>(f, v)));
+
+            var uniqueValuesInGroups = valuesInGroups.SelectMany(f => f)
+                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new KeyValuePair<char, IEnumerable<int>>(k, v))
+                .Where(f => f.Value.Count() == 1)
+                .Select(f => new KeyValuePair<char, int>(f.Key, f.Value.First()))
+                .ToImmList();
+
+            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndex, uniqueValuesInGroups);
+
+            return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, newFieldsAndUndefinedIndex.Item2);
+        }
+
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<KeyValuePair<char, int>> unique)
+        {
+            var uniqueValue = unique.TryFirst;
+            if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+
+            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefinedIndex.RemoveAt(undefinedIndex.FindIndex(uniqueValue.Value.Value).Value), unique.RemoveFirst());
         }
     }
 
