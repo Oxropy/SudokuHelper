@@ -88,7 +88,7 @@ namespace SudokuHelper
             var nextValue = fields[undefinedIndex.First].TryFirst;
             if (nextValue.IsNone) return Optional.None;
 
-            var newFields = GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()),undefinedIndex.RemoveFirst());
+            var newFields = GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), undefinedIndex.RemoveFirst());
             if (newFields.IsSome) return newFields;
             return GetBacktrackedUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), undefinedIndex);
         }
@@ -99,19 +99,23 @@ namespace SudokuHelper
             if (index.IsNone)
                 return new Tuple<Optional<ImmMap<int, ImmList<char>>>, ImmList<int>>(fields, undefinedIndex);
 
-            var possibleValue = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, undefined, undefinedIndex, possibleValues);
-            if (possibleValue.Length == 0)
+            var possibleFieldValues = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, undefined, undefinedIndex, possibleValues);
+            if (possibleFieldValues.Length == 0)
                 return new Tuple<Optional<ImmMap<int, ImmList<char>>>, ImmList<int>>(Optional.None, undefinedIndex);
 
-            var newPossibleFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndex, ImmList.Of(new KeyValuePair<char, int>(possibleValue.First, index.Value)));
+            var newPossibleFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndex, ImmList.Of(new KeyValuePair<char, int>(possibleFieldValues.First, index.Value)));
 
-            if (possibleValue.Length == 1)
+            if (possibleFieldValues.Length == 1)
                 return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newPossibleFieldsAndUndefinedIndex.Item1, possibleValues, undefined, newPossibleFieldsAndUndefinedIndex.Item2);
-            
-            var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value].Intersect(newPossibleFieldsAndUndefinedIndex.Item2)
+
+            var groupValues = fieldIndexToGroupIndex[index.Value].Intersect(undefinedIndex)
                 .Select(f => newPossibleFieldsAndUndefinedIndex.Item1[f].Select(v => new Tuple<int, char>(f, v)))
-                .SelectMany(f => f)
-                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new KeyValuePair<char, IEnumerable<int>>(k, v))
+                .SelectMany(f => f);
+
+            if (groupValues.Any(f => f.Item2 == undefined))
+                return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newPossibleFieldsAndUndefinedIndex.Item1, possibleValues, undefined, newPossibleFieldsAndUndefinedIndex.Item2);
+
+            var uniqueValuesInGroups = groupValues.GroupBy(f => f.Item2, f => f.Item1, (k, v) => new KeyValuePair<char, IEnumerable<int>>(k, v))
                 .Where(f => f.Value.Count() == 1)
                 .Select(f => new KeyValuePair<char, int>(f.Key, f.Value.First()))
                 .ToImmList();
