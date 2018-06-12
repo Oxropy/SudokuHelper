@@ -103,12 +103,14 @@ namespace SudokuHelper
             if (possibleFieldValues.Length == 0)
                 return new Tuple<Optional<ImmMap<int, ImmList<char>>>, ImmList<int>>(Optional.None, undefinedIndex);
 
-            var newPossibleFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndex, ImmList.Of(new KeyValuePair<char, int>(possibleFieldValues.First, index.Value)));
+            var newPossibleFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefined, undefinedIndex, possibleFieldValues.Select(v => new KeyValuePair<char, int>(v, index.Value)).ToImmList());
 
             if (possibleFieldValues.Length == 1)
                 return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newPossibleFieldsAndUndefinedIndex.Item1, possibleValues, undefined, newPossibleFieldsAndUndefinedIndex.Item2);
 
-            var groupValues = fieldIndexToGroupIndex[index.Value].Intersect(undefinedIndex)
+            var groupValues = fieldIndexToGroupIndex[index.Value]
+                .Select(f => groupIndexToFieldIndex[f])
+                .SelectMany(f => f).Intersect(undefinedIndex)
                 .Select(f => newPossibleFieldsAndUndefinedIndex.Item1[f].Select(v => new Tuple<int, char>(f, v)))
                 .SelectMany(f => f);
 
@@ -120,7 +122,7 @@ namespace SudokuHelper
                 .Select(f => new KeyValuePair<char, int>(f.Key, f.Value.First()))
                 .ToImmList();
 
-            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(newPossibleFieldsAndUndefinedIndex.Item1, newPossibleFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
+            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(newPossibleFieldsAndUndefinedIndex.Item1, undefined, newPossibleFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
             return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, possibleValues, undefined, newFieldsAndUndefinedIndex.Item2);
         }
 
@@ -134,13 +136,16 @@ namespace SudokuHelper
             return possibleValues.Except(impossibleValues).ToImmList();
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<KeyValuePair<char, int>> unique)
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, char undefined, ImmList<int> undefinedIndex, ImmList<KeyValuePair<char, int>> unique)
         {
             var uniqueValue = unique.TryFirst;
             if (uniqueValue.IsNone)
                 return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
-            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefinedIndex.RemoveAt(undefinedIndex.FindIndex(uniqueValue.Value.Value).Value), unique.RemoveFirst());
+            if (fields[uniqueValue.Value.Value].Length > 1 && fields[uniqueValue.Value.Value].First == undefined)
+                return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefined, undefinedIndex.RemoveAt(undefinedIndex.FindIndex(uniqueValue.Value.Value).Value), unique.RemoveFirst());
+
+            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, fields[uniqueValue.Value.Value].AddLast(uniqueValue.Value.Key)), undefined, undefinedIndex.RemoveAt(undefinedIndex.FindIndex(uniqueValue.Value.Value).Value), unique.RemoveFirst());
         }
     }
 
