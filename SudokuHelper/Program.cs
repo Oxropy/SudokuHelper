@@ -100,16 +100,16 @@ namespace SudokuHelper
             var index = undefinedIndex.TryFirst;
             if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields, undefinedIndex, new int[0].ToImmList()));
 
-            var possibleValues = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, undefinedIndex);
+            var possibleValues = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, index.Value);
             return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(index.Value, possibleValues), sudokuValues, undefined, undefinedIndex.RemoveFirst());
         }
 
-        private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, ImmList<int> undefinedIndex)
+        private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, int currentUndefinedIndex)
         {
-            var impossibleValues = fieldIndexToGroupIndex[undefinedIndex.First]
+            var impossibleValues = fieldIndexToGroupIndex[currentUndefinedIndex]
                 .Select(g => groupIndexToFieldIndex[g])
                 .SelectMany(g => g)
-                .Except(undefinedIndex)
+                .Where(g => fields[g].Length == 1 && fields[g].First != undefined)
                 .Select(g => fields[g].First)
                 .ToImmSet();
             return sudokuValues.Except(impossibleValues).ToImmList();
