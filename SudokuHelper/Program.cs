@@ -98,7 +98,7 @@ namespace SudokuHelper
         private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetPossibleFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, ImmList<int> undefinedIndex)
         {
             var index = undefinedIndex.TryFirst;
-            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields, undefinedIndex, new int[0].ToImmList()));
+            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields));
 
             var possibleValues = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, index.Value);
             return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(index.Value, possibleValues), sudokuValues, undefined, undefinedIndex.RemoveFirst());
@@ -118,7 +118,7 @@ namespace SudokuHelper
         private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetUniqueFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex)
         {
             var index = undefinedIndex.TryFirst;
-            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields, undefinedIndex, new int[0].ToImmList()));
+            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields));
 
             var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value]
                 .Intersect(undefinedIndex)
@@ -142,13 +142,9 @@ namespace SudokuHelper
             return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefinedIndex.RemoveAt(undefinedIndex.FindIndex(uniqueValue.Value.Value).Value), uniqueValues.RemoveFirst());
         }
 
-        private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<int> stillUndefinedIndex)
+        private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields)
         {
-            var index = undefinedIndex.TryFirst;
-            if (index.IsNone) return stillUndefinedIndex;
-
-            if (fields[index.Value].Length > 1) return GetStillUndefinedIndex(fields, undefinedIndex.RemoveFirst(), stillUndefinedIndex.AddLast(index.Value));
-            return GetStillUndefinedIndex(fields, undefinedIndex.RemoveFirst(), stillUndefinedIndex);
+            return fields.Where(f => f.Value.Length > 1).Select(f => f.Key).ToImmList();
         }
     }
 
