@@ -71,9 +71,13 @@ namespace SudokuHelper
             var fieldsWithPossible = GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, undefinedIndex);
             if (fieldsWithPossible.Item2.Length == 0) return fieldsWithPossible.Item1;
 
+            SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
+
             var fieldsWithUnique = GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithPossible.Item1, fieldsWithPossible.Item2, new int[0].ToImmList());
             if (fieldsWithUnique.Item2.Length == 0) return fieldsWithUnique.Item1;
-            
+
+            SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
+
             return GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithUnique.Item1, fieldsWithUnique.Item2);
         }
 
@@ -230,6 +234,24 @@ namespace SudokuHelper
             Console.WriteLine();
         }
 
+        public static void PrintSudokuWithPossible(ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues)
+        {
+            var valueCount = sudokuValues.Count;
+
+            for (int i = 0; i < valueCount; i++)
+            {
+                StringBuilder sb = new StringBuilder();
+                for (int j = 0; j < valueCount; j++)
+                {
+                    int key = i * valueCount + j;
+                    AppendFieldWithPossible(sb, fields[key], sudokuValues);
+                    sb.Append(" ");
+                }
+                Console.WriteLine(sb.ToString());
+            }
+            Console.WriteLine();
+        }
+
         public static void PrintGroups(ImmMap<int, HashSet<int>> groupIndexToFieldIndex, int valueCount)
         {
             var groups = groupIndexToFieldIndex.Values.ToImmList();
@@ -258,10 +280,29 @@ namespace SudokuHelper
             }
             else
             {
-                sb.Append("[");
-                sb.Append(string.Join(",", field));
-                sb.Append("]");
+                sb.Append("_");
             }
+        }
+
+        private static void AppendFieldWithPossible(StringBuilder sb, ImmList<char> field, HashSet<char> sudokuValues)
+        {
+            var values = AppendFieldWithPossible(field, sudokuValues.ToImmList(), new char[0].ToImmList());
+
+            sb.Append("[");
+            sb.Append(string.Join(",", values));
+            sb.Append("]");
+        }
+
+        private static ImmList<char> AppendFieldWithPossible(ImmList<char> field, ImmList<char> sudokuValues, ImmList<char> values)
+        {
+            var value = sudokuValues.TryFirst;
+            if (value.IsNone) return values;
+
+            if (field.Contains(value.Value))
+            {
+                return AppendFieldWithPossible(field, sudokuValues.RemoveFirst(), values.AddLast(value.Value));
+            }
+            return AppendFieldWithPossible(field, sudokuValues.RemoveFirst(), values.AddLast(' '));
         }
     }
 }
