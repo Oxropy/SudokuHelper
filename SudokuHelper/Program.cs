@@ -237,15 +237,30 @@ namespace SudokuHelper
         public static void PrintSudokuWithPossible(ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues)
         {
             var valueCount = sudokuValues.Count;
+            List<ImmMap<Tuple<int, int>, char>> displayFields = new List<ImmMap<Tuple<int, int>, char>>();
+            int width = 3;
+            int height = 3;
+
+            for (int i = 0; i < valueCount; i++)
+            {
+                for (int j = 0; j < valueCount; j++)
+                {
+                    int key = i * valueCount + j;
+                    displayFields.Add(GetFieldPossibleValueGrid(width, height, fields[key], sudokuValues.ToImmList()));
+                }
+            }
 
             for (int i = 0; i < valueCount; i++)
             {
                 StringBuilder sb = new StringBuilder();
-                for (int j = 0; j < valueCount; j++)
+                for (int r = 0; r < height; r++)
                 {
-                    int key = i * valueCount + j;
-                    AppendFieldWithPossible(sb, fields[key], sudokuValues);
-                    sb.Append(" ");
+                    for (int j = 0; j < valueCount; j++)
+                    {
+                        int key = i * valueCount + j;
+                        sb.Append(displayFields[key][new Tuple<int, int>(r, i)]);
+                        sb.Append(" ");
+                    } 
                 }
                 Console.WriteLine(sb.ToString());
             }
@@ -282,6 +297,29 @@ namespace SudokuHelper
             {
                 sb.Append("_");
             }
+        }
+
+        private static ImmMap<Tuple<int, int>, char> GetFieldPossibleValueGrid(int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
+        {
+            int sudokuValueIndex = 0;
+
+            Dictionary<Tuple<int, int>, char> fieldValues = new Dictionary<Tuple<int, int>, char>();
+
+            for (int i = 0; i < height; i++)
+            {
+                for (int j = 0; j < width; j++)
+                {
+                    char value = sudokuValues[sudokuValueIndex];
+                    if (!field.Contains(value))
+                    {
+                        value = '_';
+                    }
+
+                    fieldValues.Add(new Tuple<int, int>(i, j), value);
+                }
+            }
+
+            return fieldValues.ToImmMap();
         }
 
         private static void AppendFieldWithPossible(StringBuilder sb, ImmList<char> field, HashSet<char> sudokuValues)
