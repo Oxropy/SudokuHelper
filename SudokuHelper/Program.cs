@@ -250,20 +250,20 @@ namespace SudokuHelper
                 }
             }
 
-            for (int i = 0; i < valueCount; i++)
+            var orderedFields = displayFields.SelectMany(f => f).Select((f, i) => new Tuple<int, int, char>(f.Key.Item1 * i, f.Key.Item2 * width, f.Value)).OrderBy(f => f.Item1).ThenBy(f => f.Item2).GroupBy(f => f.Item1);
+
+            foreach (var field in orderedFields)
             {
                 StringBuilder sb = new StringBuilder();
-                for (int r = 0; r < height; r++)
+
+                foreach (var value in field)
                 {
-                    for (int j = 0; j < valueCount; j++)
-                    {
-                        int key = i * valueCount + j;
-                        sb.Append(displayFields[key][new Tuple<int, int>(r, i)]);
-                        sb.Append(" ");
-                    } 
+                    sb.Append(value.Item3);
                 }
-                Console.WriteLine(sb.ToString());
+
+                Console.WriteLine(sb);
             }
+
             Console.WriteLine();
         }
 
@@ -307,6 +307,7 @@ namespace SudokuHelper
 
             for (int i = 0; i < height; i++)
             {
+                fieldValues.Add(new Tuple<int, int>(i, -1), '[');
                 for (int j = 0; j < width; j++)
                 {
                     char value = sudokuValues[sudokuValueIndex];
@@ -316,7 +317,9 @@ namespace SudokuHelper
                     }
 
                     fieldValues.Add(new Tuple<int, int>(i, j), value);
+                    sudokuValueIndex++;
                 }
+                fieldValues.Add(new Tuple<int, int>(i, width), ']');
             }
 
             return fieldValues.ToImmMap();
