@@ -250,18 +250,22 @@ namespace SudokuHelper
                 }
             }
 
-            var orderedFields = displayFields.SelectMany(f => f).Select((f, i) => new Tuple<int, int, char>(f.Key.Item1 * i, f.Key.Item2 * width, f.Value)).OrderBy(f => f.Item1).ThenBy(f => f.Item2).GroupBy(f => f.Item1);
+            var orderedFields = displayFields.SelectMany(f => f).Select((f, i) => new Tuple<int, int, char>(f.Key.Item1 * i, f.Key.Item2 * width, f.Value)).OrderBy(f => f.Item1).ThenBy(f => f.Item2).ToImmList();
 
-            foreach (var field in orderedFields)
+            for (int i = 0; i < orderedFields.Length; i++)
             {
+                var field = orderedFields[i];
                 StringBuilder sb = new StringBuilder();
-
-                foreach (var value in field)
+                sb.Append(field.Item3);
+                sb.Append(" ");
+                if ((i + 1) % (sudokuValues.Count * width) == 0)
                 {
-                    sb.Append(value.Item3);
+                    Console.WriteLine(sb); 
                 }
-
-                Console.WriteLine(sb);
+                else
+                {
+                    Console.Write(sb);
+                }
             }
 
             Console.WriteLine();
@@ -307,43 +311,21 @@ namespace SudokuHelper
 
             for (int i = 0; i < height; i++)
             {
-                fieldValues.Add(new Tuple<int, int>(i, -1), '[');
                 for (int j = 0; j < width; j++)
                 {
+                    int fieldIndex = i * sudokuValues.Length + j;
                     char value = sudokuValues[sudokuValueIndex];
                     if (!field.Contains(value))
                     {
                         value = '_';
                     }
 
-                    fieldValues.Add(new Tuple<int, int>(i, j), value);
+                    fieldValues.Add(new Tuple<int, int>(i * fieldIndex * height, j + fieldIndex * width), value);
                     sudokuValueIndex++;
                 }
-                fieldValues.Add(new Tuple<int, int>(i, width), ']');
             }
 
             return fieldValues.ToImmMap();
-        }
-
-        private static void AppendFieldWithPossible(StringBuilder sb, ImmList<char> field, HashSet<char> sudokuValues)
-        {
-            var values = AppendFieldWithPossible(field, sudokuValues.ToImmList(), new char[0].ToImmList());
-
-            sb.Append("[");
-            sb.Append(string.Join(",", values));
-            sb.Append("]");
-        }
-
-        private static ImmList<char> AppendFieldWithPossible(ImmList<char> field, ImmList<char> sudokuValues, ImmList<char> values)
-        {
-            var value = sudokuValues.TryFirst;
-            if (value.IsNone) return values;
-
-            if (field.Contains(value.Value))
-            {
-                return AppendFieldWithPossible(field, sudokuValues.RemoveFirst(), values.AddLast(value.Value));
-            }
-            return AppendFieldWithPossible(field, sudokuValues.RemoveFirst(), values.AddLast(' '));
         }
     }
 }
