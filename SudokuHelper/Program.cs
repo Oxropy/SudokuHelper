@@ -237,7 +237,7 @@ namespace SudokuHelper
         public static void PrintSudokuWithPossible(ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues)
         {
             var valueCount = sudokuValues.Count;
-            List<ImmMap<Tuple<int, int>, char>> displayFields = new List<ImmMap<Tuple<int, int>, char>>();
+            var displayFields = new List<ImmMap<Tuple<int, int, int>, string>>();
             int width = 3;
             int height = 3;
 
@@ -246,17 +246,17 @@ namespace SudokuHelper
                 for (int j = 0; j < valueCount; j++)
                 {
                     int key = i * valueCount + j;
-                    displayFields.Add(GetFieldPossibleValueGrid(width, height, fields[key], sudokuValues.ToImmList()));
+                    displayFields.Add(GetFieldPossibleValueGrid(key, width, height, fields[key], sudokuValues.ToImmList()));
                 }
             }
 
-            var orderedFields = displayFields.SelectMany(f => f).Select((f, i) => new Tuple<int, int, char>(f.Key.Item1 * i, f.Key.Item2 * width, f.Value)).OrderBy(f => f.Item1).ThenBy(f => f.Item2).ToImmList();
+            var orderedFields = displayFields.SelectMany(f => f).Select((f, i) => new Tuple<int, int, int, string>(f.Key.Item1, f.Key.Item2, f.Key.Item3, f.Value)).OrderBy(f => f.Item2).ThenBy(f => f.Item3).ToImmList();
 
             for (int i = 0; i < orderedFields.Length; i++)
             {
                 var field = orderedFields[i];
                 StringBuilder sb = new StringBuilder();
-                sb.Append(field.Item3);
+                sb.Append(field.Item4);
                 sb.Append(" ");
                 if ((i + 1) % (sudokuValues.Count * width) == 0)
                 {
@@ -303,24 +303,25 @@ namespace SudokuHelper
             }
         }
 
-        private static ImmMap<Tuple<int, int>, char> GetFieldPossibleValueGrid(int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
+        private static ImmMap<Tuple<int, int, int>, string> GetFieldPossibleValueGrid(int fieldIndex, int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
         {
             int sudokuValueIndex = 0;
 
-            Dictionary<Tuple<int, int>, char> fieldValues = new Dictionary<Tuple<int, int>, char>();
+            var fieldValues = new Dictionary<Tuple<int, int, int>, string>();
 
             for (int i = 0; i < height; i++)
             {
                 for (int j = 0; j < width; j++)
                 {
-                    int fieldIndex = i * sudokuValues.Length + j;
                     char value = sudokuValues[sudokuValueIndex];
                     if (!field.Contains(value))
                     {
                         value = '_';
                     }
 
-                    fieldValues.Add(new Tuple<int, int>(i * fieldIndex * height, j + fieldIndex * width), value);
+                    string valueInfo = string.Format("[{0} ({1}|{2}) {3}]", fieldIndex , i, j, value);
+
+                    fieldValues.Add(new Tuple<int, int, int>(fieldIndex, i, j), valueInfo);
                     sudokuValueIndex++;
                 }
             }
