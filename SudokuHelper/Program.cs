@@ -76,7 +76,7 @@ namespace SudokuHelper
             var fieldsWithUnique = GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithPossible.Item1, fieldsWithPossible.Item2, new int[0].ToImmList());
             if (fieldsWithUnique.Item2.Length == 0) return fieldsWithUnique.Item1;
 
-            SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
+            //SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
 
             return GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithUnique.Item1, fieldsWithUnique.Item2);
         }
@@ -256,11 +256,23 @@ namespace SudokuHelper
             {
                 var field = orderedFields[i];
                 StringBuilder sb = new StringBuilder();
+
                 sb.Append(field.Item2);
                 sb.Append(" ");
-                if ((i + 1) % (sudokuValues.Count * width) == 0)
+
+                if ((i + 1) % (width * width) == 0)
                 {
-                    Console.WriteLine(sb); 
+                    sb.Append("| ");
+                }
+                
+                if ((i + 1) % (sudokuValues.Count) == 0)
+                {
+                    Console.WriteLine(sb);
+                    if ((i + 1) % (sudokuValues.Count * width * width) == 0)
+                    {
+                        Console.WriteLine("".PadRight(sudokuValues.Count * 2 * width + (sudokuValues.Count / width), '_'));
+                        Console.WriteLine();
+                    }
                 }
                 else
                 {
