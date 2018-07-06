@@ -241,12 +241,12 @@ namespace SudokuHelper
             int width = 3;
             int height = 3;
 
-            for (int i = 0; i < valueCount; i++)
+            for (int row = 0; row < valueCount; row++)
             {
-                for (int j = 0; j < valueCount; j++)
+                for (int column = 0; column < valueCount; column++)
                 {
-                    int fieldIndex = i * valueCount + j;
-                    displayFields.Add(GetFieldPossibleValueGrid(fieldIndex, width, height, fields[fieldIndex], sudokuValues.ToImmList()));
+                    int fieldIndex = row * valueCount + column;
+                    displayFields.Add(GetFieldPossibleValueGrid(row, column, width, height, fields[fieldIndex], sudokuValues.ToImmList()));
                 }
             }
 
@@ -260,17 +260,16 @@ namespace SudokuHelper
                 sb.Append(field.Item2);
                 sb.Append(" ");
 
-                if ((i + 1) % (width * width) == 0)
+                if ((i + 1) % width == 0)
                 {
                     sb.Append("| ");
                 }
-                
+
                 if ((i + 1) % (sudokuValues.Count) == 0)
                 {
-                    Console.WriteLine(sb);
+                    Console.Write(sb);
                     if ((i + 1) % (sudokuValues.Count * width * width) == 0)
                     {
-                        Console.WriteLine("".PadRight(sudokuValues.Count * 2 * width + (sudokuValues.Count / width), '_'));
                         Console.WriteLine();
                     }
                 }
@@ -315,7 +314,7 @@ namespace SudokuHelper
             }
         }
 
-        private static ImmMap<int, char> GetFieldPossibleValueGrid(int fieldIndex, int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
+        private static ImmMap<int, char> GetFieldPossibleValueGrid(int row, int column, int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
         {
             int sudokuValueIndex = 0;
 
@@ -331,9 +330,10 @@ namespace SudokuHelper
                         value = '_';
                     }
 
-                    int index = fieldIndex * width + i * sudokuValues.Length * 3 + j;
-                    //string valueInfo = string.Format("[{0} {1} ({2}|{3}) <{4}>]", fieldIndex.ToString("00"), index.ToString("000"), i, j, value);
-                    
+                    int index = (row * sudokuValues.Length * sudokuValues.Length) + (column * width) + i * width * sudokuValues.Length + j;
+                    //string valueInfo = string.Format("[({0}|{1}) {2} ({3}|{4}) <{5}>]", row.ToString(), column.ToString(), index.ToString("000"), i, j, value);
+                    //Console.Write(valueInfo);
+
                     fieldValues.Add(index, value);
                     sudokuValueIndex++;
                 }
