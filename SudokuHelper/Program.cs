@@ -262,20 +262,29 @@ namespace SudokuHelper
 
                 if ((i + 1) % width == 0)
                 {
+                    if ((i + 1) % (width * width) == 0)
+                    {
+                        sb.Append("|");
+                    }
                     sb.Append("| ");
                 }
 
+                Console.Write(sb);
+
                 if ((i + 1) % (sudokuValues.Count) == 0)
                 {
-                    Console.Write(sb);
-                    if ((i + 1) % (sudokuValues.Count * width * width) == 0)
+                    if ((i + 1) % (sudokuValues.Count * width) == 0)
                     {
                         Console.WriteLine();
+                        if ((i + 1) % (sudokuValues.Count * height * height) == 0)
+                        {
+                            Console.WriteLine();
+                            if ((i + 1) % (sudokuValues.Count * height * height * height) == 0)
+                            {
+                                Console.WriteLine();
+                            }
+                        }
                     }
-                }
-                else
-                {
-                    Console.Write(sb);
                 }
             }
 
