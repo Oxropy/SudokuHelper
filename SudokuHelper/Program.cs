@@ -262,10 +262,7 @@ namespace SudokuHelper
 
                 if ((i + 1) % width == 0)
                 {
-                    if ((i + 1) % (width * width) == 0)
-                    {
-                        sb.Append("|");
-                    }
+                    if ((i + 1) % (width * width) == 0) sb.Append("|");
                     sb.Append("| ");
                 }
 
@@ -279,10 +276,7 @@ namespace SudokuHelper
                         if ((i + 1) % (sudokuValues.Count * height * height) == 0)
                         {
                             Console.WriteLine();
-                            if ((i + 1) % (sudokuValues.Count * height * height * height) == 0)
-                            {
-                                Console.WriteLine();
-                            }
+                            if ((i + 1) % (sudokuValues.Count * height * height * height) == 0) Console.WriteLine();
                         }
                     }
                 }
@@ -326,7 +320,6 @@ namespace SudokuHelper
         private static ImmMap<int, char> GetFieldPossibleValueGrid(int row, int column, int width, int height, ImmList<char> field, ImmList<char> sudokuValues)
         {
             int sudokuValueIndex = 0;
-
             var fieldValues = new Dictionary<int, char>();
 
             for (int i = 0; i < height; i++)
@@ -334,20 +327,13 @@ namespace SudokuHelper
                 for (int j = 0; j < width; j++)
                 {
                     char value = sudokuValues[sudokuValueIndex];
-                    if (!field.Contains(value))
-                    {
-                        value = '_';
-                    }
+                    if (!field.Contains(value)) value = '_';
 
                     int index = (row * sudokuValues.Length * sudokuValues.Length) + (column * width) + i * width * sudokuValues.Length + j;
-                    //string valueInfo = string.Format("[({0}|{1}) {2} ({3}|{4}) <{5}>]", row.ToString(), column.ToString(), index.ToString("000"), i, j, value);
-                    //Console.Write(valueInfo);
-
                     fieldValues.Add(index, value);
                     sudokuValueIndex++;
                 }
             }
-
             return fieldValues.ToImmMap();
         }
     }
