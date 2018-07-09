@@ -76,7 +76,7 @@ namespace SudokuHelper
             var fieldsWithUnique = GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithPossible.Item1, fieldsWithPossible.Item2, new int[0].ToImmList());
             if (fieldsWithUnique.Item2.Length == 0) return fieldsWithUnique.Item1;
 
-            //SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
+            SudokuPrinter.PrintSudokuWithPossible(fieldsWithUnique.Item1, sudokuValues);
 
             return GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithUnique.Item1, fieldsWithUnique.Item2);
         }
@@ -125,28 +125,30 @@ namespace SudokuHelper
             if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields));
 
             var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value]
+            .Select(g => groupIndexToFieldIndex[g]
                 .Intersect(undefinedIndexList)
                 .Select(f => fields[f].Select(v => new Tuple<int, char>(f, v)))
                 .SelectMany(f => f)
-                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new KeyValuePair<char, IEnumerable<int>>(k, v))
-                .Where(f => f.Value.Count() == 1)
-                .Select(f => new KeyValuePair<char, int>(f.Key, f.Value.First()))
-                .ToImmList();
+                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new Tuple<char, IEnumerable<int>>(k, v))
+                .Where(f => f.Item2.Count() == 1)
+                .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First())))
+            .SelectMany(g => g)
+            .ToImmList();
 
-            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndexList, uniqueValuesInGroups);
+            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndexList, foo);
 
             return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, undefinedIndexList.RemoveFirst(), newFieldsAndUndefinedIndex.Item2);
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<KeyValuePair<char, int>> uniqueValues)
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
         {
             var uniqueValue = uniqueValues.TryFirst;
             if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
-            var uniqueIndex = undefinedIndex.FindIndex(uniqueValue.Value.Value);
-            if (uniqueIndex.IsNone) return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefinedIndex, uniqueValues.RemoveFirst());
+            var uniqueIndex = undefinedIndex.FindIndex(uniqueValue.Value.Item2);
+            if (uniqueIndex.IsNone) return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex, uniqueValues.RemoveFirst());
 
-            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Value, ImmList.Of(uniqueValue.Value.Key)), undefinedIndex.RemoveAt(uniqueIndex.Value), uniqueValues.RemoveFirst());
+            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex.RemoveAt(uniqueIndex.Value), uniqueValues.RemoveFirst());
         }
 
         private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields)
