@@ -133,22 +133,49 @@ namespace SudokuHelper
                 .Where(f => f.Item2.Count() == 1)
                 .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First())))
             .SelectMany(g => g)
+            .Distinct()
             .ToImmList();
 
-            var newFieldsAndUndefinedIndex = GetFieldsWithUniqueUndefined(fields, undefinedIndexList, foo);
+            var newFieldsAndUndefinedIndex = SetUniqueFields(fields, undefinedIndexList, uniqueValuesInGroups);
+            var removedUniqueValuesFromUndefined = RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, newFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
 
-            return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, undefinedIndexList.RemoveFirst(), newFieldsAndUndefinedIndex.Item2);
+            return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueValuesFromUndefined.Item1, undefinedIndexList.RemoveFirst(), removedUniqueValuesFromUndefined.Item2);
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetFieldsWithUniqueUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> SetUniqueFields(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
         {
             var uniqueValue = uniqueValues.TryFirst;
             if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
             var uniqueIndex = undefinedIndex.FindIndex(uniqueValue.Value.Item2);
-            if (uniqueIndex.IsNone) return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex, uniqueValues.RemoveFirst());
+            if (uniqueIndex.IsNone) return SetUniqueFields(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex, uniqueValues.RemoveFirst());
 
-            return GetFieldsWithUniqueUndefined(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex.RemoveAt(uniqueIndex.Value), uniqueValues.RemoveFirst());
+            return SetUniqueFields(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex.RemoveAt(uniqueIndex.Value), uniqueValues.RemoveFirst());
+        }
+
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromUndefined(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
+        {
+            var uniqueValue = uniqueValues.TryFirst;
+            if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+
+            var fieldsOfGroup = fieldIndexToGroupIndex[uniqueValue.Value.Item2]
+                .Select(g => groupIndexToFieldIndex[g])
+                .SelectMany(g => g)
+                .ToImmList();
+
+            var removedUniqueInOtherUndefined = RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue.Value, fieldsOfGroup);
+
+            return RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueInOtherUndefined.Item1, removedUniqueInOtherUndefined.Item2, uniqueValues.RemoveFirst());
+        }
+
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, Tuple<char, int> uniqueValue, ImmList<int> fieldsForUpdateCheck)
+        {
+            var index = fieldsForUpdateCheck.TryFirst;
+            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+
+            if (index.Value == uniqueValue.Item2) return RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
+
+            return RemoveValueFromUndefined(fields.Set(index.Value, fields[index.Value].RemoveAt(fields[index.Value].FindIndex(uniqueValue.Item1).Value)), undefinedIndex, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
         }
 
         private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields)
