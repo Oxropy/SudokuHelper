@@ -158,12 +158,13 @@ namespace SudokuHelper
             var uniqueValue = uniqueValues.TryFirst;
             if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
-            var fieldsOfGroup = fieldIndexToGroupIndex[uniqueValue.Value.Item2]
+            var undefinedFieldsOfGroup = fieldIndexToGroupIndex[uniqueValue.Value.Item2]
                 .Select(g => groupIndexToFieldIndex[g])
                 .SelectMany(g => g)
+                .Intersect(undefinedIndex)
                 .ToImmList();
 
-            var removedUniqueInOtherUndefined = RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue.Value, fieldsOfGroup);
+            var removedUniqueInOtherUndefined = RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue.Value, undefinedFieldsOfGroup);
 
             return RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueInOtherUndefined.Item1, removedUniqueInOtherUndefined.Item2, uniqueValues.RemoveFirst());
         }
@@ -175,7 +176,25 @@ namespace SudokuHelper
 
             if (index.Value == uniqueValue.Item2) return RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
 
-            return RemoveValueFromUndefined(fields.Set(index.Value, fields[index.Value].RemoveAt(fields[index.Value].FindIndex(uniqueValue.Item1).Value)), undefinedIndex, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
+            var removedValue = RemoveValueFromFieldAndUndefined(fields, undefinedIndex, index.Value, uniqueValue.Item1);
+
+            return RemoveValueFromUndefined(removedValue.Item1, removedValue.Item2, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
+        }
+
+        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromFieldAndUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, int index, char value)
+        {
+            var indexOfValue = fields[index].FindIndex(value);
+            if (indexOfValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+
+            var fieldValue = fields[index].RemoveAt(indexOfValue.Value);
+            var newFields = fields.Set(index, fieldValue);
+            if (fieldValue.Length == 0)
+            {
+                var undefinedIndexIndex = undefinedIndex.FindIndex(index);
+                return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(newFields, undefinedIndex.RemoveAt(undefinedIndexIndex.Value));
+            }
+
+            return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(newFields, undefinedIndex);
         }
 
         private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields)
