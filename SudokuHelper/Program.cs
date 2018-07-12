@@ -139,6 +139,8 @@ namespace SudokuHelper
             var newFieldsAndUndefinedIndex = SetUniqueFields(fields, undefinedIndexList, uniqueValuesInGroups);
             var removedUniqueValuesFromUndefined = RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, newFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
 
+            SudokuPrinter.PrintSudokuWithPossible(fields, new HashSet<char>() { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+
             return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueValuesFromUndefined.Item1, undefinedIndexList.RemoveFirst(), removedUniqueValuesFromUndefined.Item2);
         }
 
@@ -165,8 +167,19 @@ namespace SudokuHelper
                 .ToImmList();
 
             var removedUniqueInOtherUndefined = RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue.Value, undefinedFieldsOfGroup);
+            var removedUniqueValues = RemoveUniqueValues(fields, uniqueValues, new Tuple<char, int>[0].ToImmList());
 
-            return RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueInOtherUndefined.Item1, removedUniqueInOtherUndefined.Item2, uniqueValues.RemoveFirst());
+            return RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueInOtherUndefined.Item1, removedUniqueInOtherUndefined.Item2, removedUniqueValues);
+        }
+
+        private static ImmList<Tuple<char, int>> RemoveUniqueValues(ImmMap<int, ImmList<char>> fields, ImmList<Tuple<char, int>> uniqueValues, ImmList<Tuple<char, int>> newUniqueValues)
+        {
+            var index = uniqueValues.TryFirst;
+            if (index.IsNone) return newUniqueValues;
+
+            if (fields[index.Value.Item2].Length == 1) return RemoveUniqueValues(fields, uniqueValues.RemoveFirst(), newUniqueValues);
+
+            return RemoveUniqueValues(fields, uniqueValues.RemoveFirst(), newUniqueValues.AddLast(index.Value));
         }
 
         private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, Tuple<char, int> uniqueValue, ImmList<int> fieldsForUpdateCheck)
