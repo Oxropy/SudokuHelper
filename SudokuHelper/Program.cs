@@ -125,13 +125,10 @@ namespace SudokuHelper
             if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields));
 
             var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value]
-            .Select(g => groupIndexToFieldIndex[g]
-                .Intersect(undefinedIndexList)
-                .Select(f => fields[f].Select(v => new Tuple<int, char>(f, v)))
-                .SelectMany(f => f)
-                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new Tuple<char, IEnumerable<int>>(k, v))
-                .Where(f => f.Item2.Count() == 1)
-                .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First())))
+            .Select(g =>
+            {
+                return SelectUniqueValuesInGroup(groupIndexToFieldIndex, fields, undefinedIndexList, g);
+            })
             .SelectMany(g => g)
             .Distinct()
             .ToImmList();
@@ -142,6 +139,19 @@ namespace SudokuHelper
             SudokuPrinter.PrintSudokuWithPossible(fields, new HashSet<char>() { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 
             return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueValuesFromUndefined.Item1, undefinedIndexList.RemoveFirst(), removedUniqueValuesFromUndefined.Item2);
+        }
+
+        private static IEnumerable<Tuple<char, int>> SelectUniqueValuesInGroup(ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndexList, int g)
+        {
+            var indexOfGroup = groupIndexToFieldIndex[g];
+            var intersectIndexOfGroup = indexOfGroup.Intersect(undefinedIndexList);
+            var fieldValue = intersectIndexOfGroup.Select(f => fields[f].Select(v => new Tuple<int, char>(f, v)));
+            var flatFieldValue = fieldValue.SelectMany(f => f);
+            var groupedFieldValue = flatFieldValue.GroupBy(f => f.Item2, f => f.Item1, (k, v) => new Tuple<char, IEnumerable<int>>(k, v));
+            var uniqueGroupedValue = groupedFieldValue.Where(f => f.Item2.Count() == 1);
+            var uniqueValues = uniqueGroupedValue.Select(f => new Tuple<char, int>(f.Item1, f.Item2.First()));
+
+            return uniqueValues;
         }
 
         private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> SetUniqueFields(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
