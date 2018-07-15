@@ -111,8 +111,7 @@ namespace SudokuHelper
         private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, int currentUndefinedIndex)
         {
             var impossibleValues = fieldIndexToGroupIndex[currentUndefinedIndex]
-                .Select(g => groupIndexToFieldIndex[g])
-                .SelectMany(g => g)
+                .SelectMany(g => groupIndexToFieldIndex[g])
                 .Where(g => fields[g].Length == 1 && fields[g].First != undefined)
                 .Select(g => fields[g].First)
                 .ToImmSet();
@@ -125,15 +124,12 @@ namespace SudokuHelper
             if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
             var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value]
-                .Select(g => groupIndexToFieldIndex[g]
+                .SelectMany(g => groupIndexToFieldIndex[g]
                 .Intersect(undefinedIndex)
-                .Select(f => fields[f].Select(v => new Tuple<int, char>(f, v)))
-                .SelectMany(f => f)
+                .SelectMany(f => fields[f].Select(v => new Tuple<int, char>(f, v)))
                 .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new Tuple<char, IEnumerable<int>>(k, v))
                 .Where(f => f.Item2.Count() == 1)
-                .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First()))
-            )
-            .SelectMany(g => g)
+                .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First())))
             .Distinct()
             .ToImmList();
 
@@ -162,8 +158,7 @@ namespace SudokuHelper
             if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
 
             var undefinedFieldsOfGroup = fieldIndexToGroupIndex[uniqueValue.Value.Item2]
-                .Select(g => groupIndexToFieldIndex[g])
-                .SelectMany(g => g)
+                .SelectMany(g => groupIndexToFieldIndex[g])
                 .Intersect(undefinedIndex)
                 .ToImmList();
 
@@ -251,12 +246,10 @@ namespace SudokuHelper
                         .GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<char, HashSet<int>>(k, new HashSet<int>(v)))
                         .ToImmMap());
 
-                    var groupIndexToFieldIndex = groups.Select((g, gi) => g.Select((v, i) => new KeyValuePair<int, HashSet<int>>(i + (gi * 10) + (groupindexStart * 100), v.Value)))
-                        .SelectMany(g => g)
+                    var groupIndexToFieldIndex = groups.SelectMany((g, gi) => g.Select((v, i) => new KeyValuePair<int, HashSet<int>>(i + (gi * 10) + (groupindexStart * 100), v.Value)))
                         .ToImmMap();
 
-                    var fieldindexToGroupIndex = groupIndexToFieldIndex.Select(g => g.Value.Select(v => new Tuple<int, int>(v, g.Key)))
-                        .SelectMany(g => g)
+                    var fieldindexToGroupIndex = groupIndexToFieldIndex.SelectMany(g => g.Value.Select(v => new Tuple<int, int>(v, g.Key)))
                         .GroupBy(g => g.Item1, g => g.Item2, (k, v) => new KeyValuePair<int, HashSet<int>>(k, new HashSet<int>(v)))
                         .ToImmMap();
 
