@@ -133,7 +133,7 @@ namespace SudokuHelper
             .Distinct()
             .ToImmList();
 
-            var newFieldsAndUndefinedIndex = SetUniqueFields(fields, undefinedIndexList, uniqueValuesInGroups);
+            var newFieldsAndUndefinedIndex = SetUniqueFields(fields, undefinedIndex, uniqueValuesInGroups);
             var removedUniqueValuesFromUndefined = RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, newFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
 
             SudokuPrinter.PrintSudokuWithPossible(removedUniqueValuesFromUndefined.Item1, new HashSet<char>() { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
