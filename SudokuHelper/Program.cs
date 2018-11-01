@@ -14,9 +14,23 @@ namespace SudokuHelper
         static void Main(string[] args)
         {
             const char undefined = '_';
-            Console.WriteLine("Sudoku path:");
-            string pathInput = Console.ReadLine();
-            var values = SudokuImport.ImportDomainAndSudoku(pathInput, undefined);
+
+            string sudokuPath;
+            string groupsPath;
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Sudoku path:");
+                sudokuPath = Console.ReadLine();
+
+                Console.WriteLine("Group path:");
+                groupsPath = Console.ReadLine();
+            }
+            else
+            {
+                sudokuPath = args[0];
+                groupsPath = args[1];
+            }
+            var values = SudokuImport.ImportDomainAndSudoku(sudokuPath, undefined);
 
             if (values.IsSome)
             {
@@ -24,186 +38,146 @@ namespace SudokuHelper
                 var sudokuField = values.Value.Item2;
                 var undefinedIndex = values.Value.Item3;
 
-                if (sudokuField.Length > 0)
+                var groups = SudokuImport.ImportGroups(groupsPath, undefined, sudokuValues.Count);
+
+                if (sudokuField.Length > 0 && groups.IsSome)
                 {
                     SudokuPrinter.PrintSudoku(sudokuField, sudokuValues.Count);
 
-                    Console.WriteLine("Group path:");
-                    pathInput = Console.ReadLine();
+                    //TestCycles(100, sudokuField, groups.Value, sudokuValues, undefinedIndex);
 
-                    var groups = SudokuImport.ImportGroups(pathInput, undefined, sudokuValues.Count, 0);
+                    Stopwatch sw = Stopwatch.StartNew();
+                    var solved = SudokuSolver.Solve(sudokuField, groups.Value, sudokuValues, undefinedIndex);
+                    sw.Stop();
+                    Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
 
-                    if (groups.IsSome)
-                    {
-                        var fieldIndexToGroupIndex = groups.Value.Item1;
-                        var groupIndexToFieldIndex = groups.Value.Item2;
-
-                        SudokuPrinter.PrintGroups(groupIndexToFieldIndex, sudokuValues.Count);
-
-                        //TestCycles(100, fieldIndexToGroupIndex, groupIndexToFieldIndex, sudokuField, sudokuValues, undefined, undefinedIndex);
-
-                        Stopwatch sw = Stopwatch.StartNew();
-                        var solved = SudokuSolver.Solve(fieldIndexToGroupIndex, groupIndexToFieldIndex, sudokuField, sudokuValues, undefined, undefinedIndex);
-                        sw.Stop();
-                        Console.WriteLine("Time: {0}ms", sw.ElapsedMilliseconds);
-
-                        if (solved.IsSome) SudokuPrinter.PrintSudoku(solved.Value, sudokuValues.Count);
-                        else Console.WriteLine("Unsolved!");
-                    }
+                    if (solved.IsSome) SudokuPrinter.PrintSudoku(solved.Value, sudokuValues.Count);
+                    else Console.WriteLine("Unsolved!");
                 }
             }
             Console.ReadKey();
         }
 
-        static void TestCycles(int times, ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, ImmList<int> undefinedIndex)
+        static void TestCycles(int times, ImmMap<int, ImmList<char>> fields, ImmList<ImmMap<char, HashSet<int>>> groups, HashSet<char> sudokuValues, ImmList<int> undefinedIndex)
         {
             for (int i = 0; i < times; i++)
             {
-                SudokuSolver.Solve(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, undefinedIndex);
+                SudokuSolver.Solve(fields, groups, sudokuValues, undefinedIndex);
             }
         }
     }
 
     static class SudokuSolver
     {
-        public static Optional<ImmMap<int, ImmList<char>>> Solve(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, ImmList<int> undefinedIndex)
+        /// <summary>
+        /// Solves Sudoku.
+        /// </summary>
+        /// <returns>Solved fields or None.</returns>
+        public static Optional<ImmMap<int, ImmList<char>>> Solve(ImmMap<int, ImmList<char>> fields, ImmList<ImmMap<char, HashSet<int>>> groups, HashSet<char> values, ImmList<int> undefinedIndex)
         {
-            var fieldsWithPossible = GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, undefinedIndex);
-            if (fieldsWithPossible.Item2.Length == 0) return fieldsWithPossible.Item1;
+            var fieldToRelatedFields = SudokuHelper.GetMappingFieldToRelatedFields(groups);
 
-            SudokuPrinter.PrintSudokuWithPossible(fieldsWithPossible.Item1, sudokuValues);
-
-            var fieldsWithUnique = GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithPossible.Item1, fieldsWithPossible.Item2, fieldsWithPossible.Item2);
-            if (fieldsWithUnique.Item2.Length == 0) return fieldsWithUnique.Item1;
-
-            SudokuPrinter.PrintSudokuWithPossible(fieldsWithUnique.Item1, sudokuValues);
-
-            return GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fieldsWithUnique.Item1, fieldsWithUnique.Item2);
+            return Solve(fields, fieldToRelatedFields, values, undefinedIndex);
         }
 
-        private static Optional<ImmMap<int, ImmList<char>>> GetBacktracked(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex)
+        /// <summary>
+        /// Solves Sudoku.
+        /// </summary>
+        /// <returns>Solved fields or None.</returns>
+        public static Optional<ImmMap<int, ImmList<char>>> Solve(ImmMap<int, ImmList<char>> fields, ImmMap<int, HashSet<int>> fieldToRelatedFields, HashSet<char> values, ImmList<int> undefinedIndex)
         {
-            var undefinedIndexValue = undefinedIndex.TryFirst;
-            if (undefinedIndexValue.IsNone) return fields;
+            var fieldsWithPossible = SudokuHelper.GetUndefinedAsPossibleFields(fields, values, undefinedIndex);
 
-            return GetBacktrackedUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, undefinedIndex);
+            if (fieldsWithPossible.IsNone) return Optional.None;
+            return SolveBacktracked(fieldsWithPossible.Value, fieldToRelatedFields, values, undefinedIndex);
         }
 
-        private static Optional<ImmMap<int, ImmList<char>>> GetBacktrackedUndefined(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex)
+        /// <summary>
+        /// Solves Sudoku backtracked. Get next undefined index.
+        /// </summary>
+        /// <returns>Solved fields or None.</returns>
+        private static Optional<ImmMap<int, ImmList<char>>> SolveBacktracked(ImmMap<int, ImmList<char>> fields, ImmMap<int, HashSet<int>> fieldToRelatedFields, HashSet<char> values, ImmList<int> undefinedIndex)
         {
-            var nextValue = fields[undefinedIndex.First].TryFirst;
-            if (nextValue.IsNone) return Optional.None;
+            var nextUndefinedIndex = undefinedIndex.TryFirst;
+            if (nextUndefinedIndex.IsNone) return fields;
 
-            var newFields = GetBacktracked(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), undefinedIndex.RemoveFirst());
-            if (newFields.IsSome) return newFields;
-            return GetBacktrackedUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(undefinedIndex.First, fields[undefinedIndex.First].RemoveFirst()), undefinedIndex);
+            return SolveBacktrackedUndefined(fields, fieldToRelatedFields, values, undefinedIndex);
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetPossibleFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, ImmList<int> undefinedIndex)
+        /// <summary>
+        /// Solves Sudoku backtracked. Use first value of undefined index.
+        /// </summary>
+        /// <returns>Solved fields or None.</returns>
+        private static Optional<ImmMap<int, ImmList<char>>> SolveBacktrackedUndefined(ImmMap<int, ImmList<char>> fields, ImmMap<int, HashSet<int>> fieldToRelatedFields, HashSet<char> values, ImmList<int> undefinedIndex)
         {
-            var index = undefinedIndex.TryFirst;
-            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, GetStillUndefinedIndex(fields));
+            var possibleValues = fields[undefinedIndex.First].Length == values.Count ? GetPossibleValues(fields, fieldToRelatedFields, values, undefinedIndex.First) : fields[undefinedIndex.First];
+            if (possibleValues.Length == 0) return Optional.None;
 
-            var possibleValues = GetPossibleValues(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields, sudokuValues, undefined, index.Value);
-            return GetPossibleFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, fields.Set(index.Value, possibleValues), sudokuValues, undefined, undefinedIndex.RemoveFirst());
+            var newFields = SolveBacktracked(fields.Set(undefinedIndex.First, ImmList.Of(possibleValues.First)), fieldToRelatedFields, values, undefinedIndex.RemoveFirst());
+            if (newFields.IsNone) return SolveBacktrackedUndefined(fields.Set(undefinedIndex.First, possibleValues.RemoveFirst()), fieldToRelatedFields, values, undefinedIndex);
+            return newFields;
         }
 
-        private static ImmList<char> GetPossibleValues(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, HashSet<char> sudokuValues, char undefined, int currentUndefinedIndex)
+        /// <summary>
+        /// Gets possible values for one field.
+        /// </summary>
+        /// <returns>List with possible values.</returns>
+        public static ImmList<char> GetPossibleValues(ImmMap<int, ImmList<char>> fields, ImmMap<int, HashSet<int>> fieldToRelatedFields, HashSet<char> values, int fieldIndex)
         {
-            var impossibleValues = fieldIndexToGroupIndex[currentUndefinedIndex]
-                .SelectMany(g => groupIndexToFieldIndex[g])
-                .Where(g => fields[g].Length == 1 && fields[g].First != undefined)
+            var impossibleValues = fieldToRelatedFields[fieldIndex]
+                .Where(g => fields[g].Length == 1)
                 .Select(g => fields[g].First)
                 .ToImmSet();
-            return sudokuValues.Except(impossibleValues).ToImmList();
+            return values.Except(impossibleValues).ToImmList();
+        }
+    }
+
+    static class SudokuHelper
+    {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="groups"></param>
+        /// <returns></returns>
+        public static ImmMap<int, HashSet<int>> GetMappingFieldToRelatedFields(IEnumerable<ImmMap<char, HashSet<int>>> groups)
+        {
+            var groupToFields = GetMappingGroupToFields(groups);
+            var fieldsToGroups = GetMappingFieldToGroup(groupToFields);
+            return fieldsToGroups.Select(f => new KeyValuePair<int, HashSet<int>>(f.Key, new HashSet<int>(f.Value.SelectMany(v => groupToFields[v])))).ToImmMap();
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> GetUniqueFields(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndexList, ImmList<int> undefinedIndex)
+        /// <summary>
+        /// Gets map which fields are in which groups.
+        /// </summary>
+        /// <param name="groups"></param>
+        /// <returns>Map of which fields are in which groups.</returns>
+        public static ImmMap<int, HashSet<int>> GetMappingGroupToFields(IEnumerable<ImmMap<char, HashSet<int>>> groups)
         {
-            var index = undefinedIndexList.TryFirst;
-            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
-
-            var uniqueValuesInGroups = fieldIndexToGroupIndex[index.Value]
-                .SelectMany(g => groupIndexToFieldIndex[g]
-                .Intersect(undefinedIndex)
-                .SelectMany(f => fields[f].Select(v => new Tuple<int, char>(f, v)))
-                .GroupBy(f => f.Item2, f => f.Item1, (k, v) => new Tuple<char, IEnumerable<int>>(k, v))
-                .Where(f => f.Item2.Count() == 1)
-                .Select(f => new Tuple<char, int>(f.Item1, f.Item2.First())))
-            .Distinct()
-            .ToImmList();
-
-            var newFieldsAndUndefinedIndex = SetUniqueFields(fields, undefinedIndex, uniqueValuesInGroups);
-            var removedUniqueValuesFromUndefined = RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, newFieldsAndUndefinedIndex.Item1, newFieldsAndUndefinedIndex.Item2, uniqueValuesInGroups);
-
-            SudokuPrinter.PrintSudokuWithPossible(removedUniqueValuesFromUndefined.Item1, new HashSet<char>() { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
-
-            return GetUniqueFields(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueValuesFromUndefined.Item1, undefinedIndexList.RemoveFirst(), removedUniqueValuesFromUndefined.Item2);
+            return groups.SelectMany((g, gi) => g.Select((v, i) => new KeyValuePair<int, HashSet<int>>(i + (gi * 10), v.Value))).ToImmMap();
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> SetUniqueFields(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
+        /// <summary>
+        /// Gets map which field is in which groups.
+        /// </summary>
+        /// <param name="groupToField"></param>
+        /// <returns>Map of which field is in which groups.</returns>
+        public static ImmMap<int, HashSet<int>> GetMappingFieldToGroup(ImmMap<int, HashSet<int>> groupToField)
         {
-            var uniqueValue = uniqueValues.TryFirst;
-            if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
-
-            var uniqueIndex = undefinedIndex.FindIndex(uniqueValue.Value.Item2);
-            if (uniqueIndex.IsNone) return SetUniqueFields(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex, uniqueValues.RemoveFirst());
-
-            return SetUniqueFields(fields.Set(uniqueValue.Value.Item2, ImmList.Of(uniqueValue.Value.Item1)), undefinedIndex.RemoveAt(uniqueIndex.Value), uniqueValues.RemoveFirst());
+            return groupToField.SelectMany(g => g.Value.Select(v => new Tuple<int, int>(v, g.Key)))
+                        .GroupBy(g => g.Item1, g => g.Item2, (k, v) => new KeyValuePair<int, HashSet<int>>(k, new HashSet<int>(v)))
+                        .ToImmMap();
         }
 
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromUndefined(ImmMap<int, HashSet<int>> fieldIndexToGroupIndex, ImmMap<int, HashSet<int>> groupIndexToFieldIndex, ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, ImmList<Tuple<char, int>> uniqueValues)
+        /// <summary>
+        /// Set possible values in undefined values.
+        /// </summary>
+        /// <returns>Fields with possible values excanged undefined value.</returns>
+        public static Optional<ImmMap<int, ImmList<char>>> GetUndefinedAsPossibleFields(ImmMap<int, ImmList<char>> fields, HashSet<char> values, ImmList<int> undefinedIndex)
         {
-            var uniqueValue = uniqueValues.TryFirst;
-            if (uniqueValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
+            var nextIndex = undefinedIndex.TryFirst;
+            if (nextIndex.IsNone) return fields;
 
-            var undefinedFieldsOfGroup = fieldIndexToGroupIndex[uniqueValue.Value.Item2]
-                .SelectMany(g => groupIndexToFieldIndex[g])
-                .Intersect(undefinedIndex)
-                .ToImmList();
-
-            var removedUniqueInOtherUndefined = RemoveValueFromUndefined(fields, undefinedIndex, uniqueValue.Value, undefinedFieldsOfGroup);
-            var removedUniqueValues = RemoveUniqueValues(fields, uniqueValues, new Tuple<char, int>[0].ToImmList());
-
-            return RemoveValueFromUndefined(fieldIndexToGroupIndex, groupIndexToFieldIndex, removedUniqueInOtherUndefined.Item1, removedUniqueInOtherUndefined.Item2, removedUniqueValues);
-        }
-
-        private static ImmList<Tuple<char, int>> RemoveUniqueValues(ImmMap<int, ImmList<char>> fields, ImmList<Tuple<char, int>> uniqueValues, ImmList<Tuple<char, int>> newUniqueValues)
-        {
-            var index = uniqueValues.TryFirst;
-            if (index.IsNone) return newUniqueValues;
-
-            if (fields[index.Value.Item2].Length == 1) return RemoveUniqueValues(fields, uniqueValues.RemoveFirst(), newUniqueValues);
-
-            return RemoveUniqueValues(fields, uniqueValues.RemoveFirst(), newUniqueValues.AddLast(index.Value));
-        }
-
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, Tuple<char, int> uniqueValue, ImmList<int> fieldsForUpdateCheck)
-        {
-            var index = fieldsForUpdateCheck.TryFirst;
-            if (index.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
-
-            var removedValue = RemoveValueFromFieldAndUndefined(fields, undefinedIndex, index.Value, uniqueValue.Item1);
-
-            return RemoveValueFromUndefined(removedValue.Item1, removedValue.Item2, uniqueValue, fieldsForUpdateCheck.RemoveFirst());
-        }
-
-        private static Tuple<ImmMap<int, ImmList<char>>, ImmList<int>> RemoveValueFromFieldAndUndefined(ImmMap<int, ImmList<char>> fields, ImmList<int> undefinedIndex, int index, char value)
-        {
-            var indexOfValue = fields[index].FindIndex(value);
-            if (indexOfValue.IsNone) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(fields, undefinedIndex);
-
-            var fieldValue = fields[index].RemoveAt(indexOfValue.Value);
-            var newFields = fields.Set(index, fieldValue);
-            if (fieldValue.Length != 0) return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(newFields, undefinedIndex);
-
-            var undefinedIndexIndex = undefinedIndex.FindIndex(index);
-            return new Tuple<ImmMap<int, ImmList<char>>, ImmList<int>>(newFields, undefinedIndex.RemoveAt(undefinedIndexIndex.Value));
-        }
-
-        private static ImmList<int> GetStillUndefinedIndex(ImmMap<int, ImmList<char>> fields)
-        {
-            return fields.Where(f => f.Value.Length > 1).Select(f => f.Key).ToImmList();
+            return GetUndefinedAsPossibleFields(fields.Set(nextIndex.Value, values.ToImmList()), values, undefinedIndex.RemoveFirst());
         }
     }
 
@@ -232,7 +206,7 @@ namespace SudokuHelper
             return Optional.None;
         }
 
-        public static Optional<Tuple<ImmMap<int, HashSet<int>>, ImmMap<int, HashSet<int>>>> ImportGroups(string path, char undefined, int length, int groupindexStart)
+        public static Optional<ImmList<ImmMap<char, HashSet<int>>>> ImportGroups(string path, char undefined, int length)
         {
             try
             {
@@ -244,18 +218,12 @@ namespace SudokuHelper
                         .Select((v, i) => new Tuple<char, int>(v, i))
                         .Where(v => v.Item1 != undefined)
                         .GroupBy(i => i.Item1, i => i.Item2, (k, v) => new KeyValuePair<char, HashSet<int>>(k, new HashSet<int>(v)))
-                        .ToImmMap());
+                        .ToImmMap())
+                        .ToImmList();
 
-                    var groupIndexToFieldIndex = groups.SelectMany((g, gi) => g.Select((v, i) => new KeyValuePair<int, HashSet<int>>(i + (gi * 10) + (groupindexStart * 100), v.Value)))
-                        .ToImmMap();
+                    if (groups.Any(g => g.Values.Any(v => v.Count != length))) return Optional.None;
 
-                    var fieldindexToGroupIndex = groupIndexToFieldIndex.SelectMany(g => g.Value.Select(v => new Tuple<int, int>(v, g.Key)))
-                        .GroupBy(g => g.Item1, g => g.Item2, (k, v) => new KeyValuePair<int, HashSet<int>>(k, new HashSet<int>(v)))
-                        .ToImmMap();
-
-                    if (groupIndexToFieldIndex.Any(g => g.Value.Count != length)) return Optional.None;
-
-                    return new Tuple<ImmMap<int, HashSet<int>>, ImmMap<int, HashSet<int>>>(fieldindexToGroupIndex, groupIndexToFieldIndex);
+                    return groups;
                 }
             }
             catch (Exception ex)
